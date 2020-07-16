@@ -112,3 +112,80 @@ func TestFilterExecutor(t *testing.T) {
 		assert.Equal(t, errors.New("negative"), err)
 	}
 }
+
+func ExampleNewAggregateExecutor_right() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	f, _ := circle.NewAggregator(func(x int, y string) (string, error) {
+		return fmt.Sprintf("(%d+%s)", x, y), nil
+	})
+	ex, _ := circle.NewAggregateExecutor(f, it, "iv")
+	exit, _ := ex.Execute()
+	v, _ := exit.Next()
+	fmt.Println(v)
+	_, err := exit.Next()
+	fmt.Println(err)
+	// Output:
+	// (1+(2+(3+iv)))
+	// EOI
+}
+
+func ExampleNewAggregateExecutor_left() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	f, _ := circle.NewAggregator(func(x string, y int) (string, error) {
+		return fmt.Sprintf("(%s+%d)", x, y), nil
+	})
+	ex, _ := circle.NewAggregateExecutor(f, it, "iv")
+	exit, _ := ex.Execute()
+	v, _ := exit.Next()
+	fmt.Println(v)
+	_, err := exit.Next()
+	fmt.Println(err)
+	// Output:
+	// (((iv+1)+2)+3)
+	// EOI
+}
+
+func TestAggregateExecutor(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"right": testRightAggregateExecutor,
+		"left":  testLeftAggregateExecutor,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testLeftAggregateExecutor(t *testing.T) {
+	it, err := circle.NewIterator([]int{10, 9, 4})
+	assert.Nil(t, err)
+	f, err := circle.NewAggregator(func(x string, y int) (string, error) {
+		return fmt.Sprintf("%s+%d", x, y), nil
+	})
+	assert.Nil(t, err)
+	ex, err := circle.NewAggregateExecutor(f, it, "0")
+	assert.Nil(t, err)
+	exit, err := ex.Execute()
+	assert.Nil(t, err)
+	v, err := exit.Next()
+	assert.Nil(t, err)
+	assert.Equal(t, "0+10+9+4", v)
+	_, err = exit.Next()
+	assert.Equal(t, circle.ErrEOI, err)
+}
+
+func testRightAggregateExecutor(t *testing.T) {
+	it, err := circle.NewIterator([]int{10, 9, 4})
+	assert.Nil(t, err)
+	f, err := circle.NewAggregator(func(x, y int) (int, error) {
+		return x - y, nil
+	})
+	assert.Nil(t, err)
+	ex, err := circle.NewAggregateExecutor(f, it, 0, circle.WithAggregateExecutorType(circle.RAggregateExecutorType))
+	assert.Nil(t, err)
+	exit, err := ex.Execute()
+	assert.Nil(t, err)
+	v, err := exit.Next()
+	assert.Nil(t, err)
+	assert.Equal(t, 5, v)
+	_, err = exit.Next()
+	assert.Equal(t, circle.ErrEOI, err)
+}
