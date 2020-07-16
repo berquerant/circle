@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -188,4 +189,22 @@ func testRightAggregateExecutor(t *testing.T) {
 	assert.Equal(t, 5, v)
 	_, err = exit.Next()
 	assert.Equal(t, circle.ErrEOI, err)
+}
+
+func TestCompareExecutor(t *testing.T) {
+	it, err := circle.NewIterator([]int{5, 2, 3, 1, 4})
+	assert.Nil(t, err)
+	f, err := circle.NewComparator(func(x, y int) (bool, error) {
+		return x < y, nil
+	})
+	assert.Nil(t, err)
+	exit, err := circle.NewCompareExecutor(f, it).Execute()
+	assert.Nil(t, err)
+	c := exit.Channel()
+	xs := []int{}
+	for v := range c.C() {
+		xs = append(xs, v.(int))
+	}
+	assert.Equal(t, "", cmp.Diff([]int{1, 2, 3, 4, 5}, xs))
+	assert.Nil(t, c.Err())
 }

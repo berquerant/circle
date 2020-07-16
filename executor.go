@@ -1,6 +1,9 @@
 package circle
 
-import "errors"
+import (
+	"errors"
+	"sort"
+)
 
 type (
 	// Executor provides an interface for applying function to iterator.
@@ -226,4 +229,34 @@ func (s *aggregateExecutor) foldl(acc interface{}) (interface{}, error) {
 		return nil, err
 	}
 	return s.foldl(r)
+}
+
+type (
+	compareExecutor struct {
+		f  Comparator
+		it *Iterator
+	}
+)
+
+// NewCompareExecutor returns a new Executor for sort.
+//
+// If f returns error, regard the right argument is larger.
+func NewCompareExecutor(f Comparator, it *Iterator) Executor {
+	return &compareExecutor{
+		f:  f,
+		it: it,
+	}
+}
+
+func (s *compareExecutor) Execute() (*Iterator, error) {
+	xs := []interface{}{}
+	for x := range s.it.Channel().C() {
+		xs = append(xs, x)
+	}
+	sort.SliceStable(xs, func(i, j int) bool {
+		v, err := s.f.Apply(xs[i], xs[j])
+		// append element caused some error to tail
+		return v && err == nil
+	})
+	return NewIterator(xs)
 }
