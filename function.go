@@ -195,3 +195,58 @@ func (s *aggregator) Apply(x, y interface{}) (interface{}, error) {
 	}
 	return r0, nil
 }
+
+var (
+	ErrInvalidComparator = errors.New("invalid comparator")
+)
+
+type (
+	// Comparator is a func(A, A) (bool, error)
+	Comparator interface {
+		Apply(x, y interface{}) (bool, error)
+	}
+
+	comparator struct {
+		f interface{}
+	}
+)
+
+func isComparator(f interface{}) bool {
+	t := reflect.TypeOf(f)
+	return t.Kind() == reflect.Func &&
+		t.NumIn() == 2 && t.NumOut() == 2 &&
+		t.In(0).String() == t.In(1).String() &&
+		t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+}
+
+// NewComparator returns a new Comparator.
+// If f is not appropriate for Comparator, retrurns ErrInvalidComparator.
+func NewComparator(f interface{}) (Comparator, error) {
+	if !isComparator(f) {
+		return nil, ErrInvalidComparator
+	}
+	return &comparator{
+		f: f,
+	}, nil
+}
+
+func (s *comparator) Apply(x, y interface{}) (bool, error) {
+	t := reflect.TypeOf(s.f)
+	vx, err := reflection.Convert(x, t.In(0), true)
+	if err != nil {
+		return false, err
+	}
+	vy, err := reflection.Convert(y, t.In(1), true)
+	if err != nil {
+		return false, err
+	}
+	var (
+		r  = reflect.ValueOf(s.f).Call([]reflect.Value{vx, vy})
+		r0 = r[0].Bool()
+		r1 = r[1].Interface()
+	)
+	if err, ok := r1.(error); ok {
+		return r0, err
+	}
+	return r0, nil
+}

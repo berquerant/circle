@@ -181,3 +181,45 @@ func testAggregatorApply(t *testing.T) {
 		assert.Equal(t, 11, v)
 	}
 }
+
+func TestComparator(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"invalid": testInvalidComparator,
+		"apply":   testComparatorApply,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testInvalidComparator(t *testing.T) {
+	_, err := circle.NewComparator(func() {})
+	assert.Equal(t, circle.ErrInvalidComparator, err)
+}
+
+func testComparatorApply(t *testing.T) {
+	type T struct {
+		i int
+	}
+	f, err := circle.NewComparator(func(x, y *T) (bool, error) {
+		if x == nil || y == nil {
+			return false, errors.New("white")
+		}
+		return x.i < y.i, nil
+	})
+	assert.Nil(t, err)
+	{
+		var x *T
+		_, err := f.Apply(x, &T{10})
+		assert.Equal(t, errors.New("white"), err)
+	}
+	{
+		v, err := f.Apply(&T{5}, &T{10})
+		assert.Nil(t, err)
+		assert.True(t, v)
+	}
+	{
+		v, err := f.Apply(&T{10}, &T{5})
+		assert.Nil(t, err)
+		assert.False(t, v)
+	}
+}
