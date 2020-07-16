@@ -126,3 +126,58 @@ func testFilterApply(t *testing.T) {
 		assert.False(t, v)
 	}
 }
+
+func TestAggregator(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"type":  testAggregatorType,
+		"apply": testAggregatorApply,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testAggregatorType(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"invalid": func(t *testing.T) {
+			_, err := circle.NewAggregator(func() {})
+			assert.Equal(t, circle.ErrInvalidAggregator, err)
+		},
+		"right": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ int, _ string) (string, error) { return "", nil })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.RightAggregatorType, f.Type())
+		},
+		"left": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ string, _ int) (string, error) { return "", nil })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.LeftAggregatorType, f.Type())
+		},
+		"perfect": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ string, _ string) (string, error) { return "", nil })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.PerfectAggregatorType, f.Type())
+		},
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testAggregatorApply(t *testing.T) {
+	f, err := circle.NewAggregator(func(x string, y int) (int, error) {
+		i, err := strconv.Atoi(x)
+		if err != nil {
+			return 0, err
+		}
+		return i + y, nil
+	})
+	assert.Nil(t, err)
+	{
+		_, err := f.Apply("", 10)
+		assert.NotNil(t, err)
+	}
+	{
+		v, err := f.Apply("10", 1)
+		assert.Nil(t, err)
+		assert.Equal(t, 11, v)
+	}
+}
