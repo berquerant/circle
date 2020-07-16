@@ -88,3 +88,41 @@ func testMapperApply(t *testing.T) {
 		t.Run(name, tc)
 	}
 }
+
+func TestFilter(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"invalid": testInvalidFilter,
+		"apply":   testFilterApply,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testInvalidFilter(t *testing.T) {
+	_, err := circle.NewFilter(func() {})
+	assert.Equal(t, circle.ErrInvalidFilter, err)
+}
+
+func testFilterApply(t *testing.T) {
+	f, err := circle.NewFilter(func(x string) (bool, error) {
+		if x == "" {
+			return false, errors.New("empty")
+		}
+		return len(x) < 5, nil
+	})
+	assert.Nil(t, err)
+	{
+		_, err := f.Apply("")
+		assert.Equal(t, errors.New("empty"), err)
+	}
+	{
+		v, err := f.Apply("cat")
+		assert.Nil(t, err)
+		assert.True(t, v)
+	}
+	{
+		v, err := f.Apply("timeline")
+		assert.Nil(t, err)
+		assert.False(t, v)
+	}
+}
