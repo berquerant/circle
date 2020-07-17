@@ -208,3 +208,54 @@ func TestCompareExecutor(t *testing.T) {
 	assert.Equal(t, "", cmp.Diff([]int{1, 2, 3, 4, 5}, xs))
 	assert.Nil(t, c.Err())
 }
+
+func ExampleNewFlatExecutor() {
+	it, _ := circle.NewIterator([][]string{[]string{"cast"}, []string{"a", "spell"}, []string{"on", "me"}})
+	exit, _ := circle.NewFlatExecutor(it).Execute()
+	for v := range exit.Channel().C() {
+		fmt.Println(v)
+	}
+	// Output:
+	// cast
+	// a
+	// spell
+	// on
+	// me
+}
+
+func TestFlatExecutor(t *testing.T) {
+	for name, tc := range map[string]func(t *testing.T){
+		"noop":    testFlatExecutorNoop,
+		"onestep": testFlatExecutorFlatOneStep,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testFlatExecutorNoop(t *testing.T) {
+	it, err := circle.NewIterator([]int{1, 2, 3})
+	assert.Nil(t, err)
+	exit, err := circle.NewFlatExecutor(it).Execute()
+	assert.Nil(t, err)
+	c := exit.Channel()
+	xs := []int{}
+	for v := range c.C() {
+		xs = append(xs, v.(int))
+	}
+	assert.Equal(t, "", cmp.Diff([]int{1, 2, 3}, xs))
+	assert.Nil(t, c.Err())
+}
+
+func testFlatExecutorFlatOneStep(t *testing.T) {
+	it, err := circle.NewIterator([][]int{[]int{1}, []int{2, 3}, []int{4, 5, 6}})
+	assert.Nil(t, err)
+	exit, err := circle.NewFlatExecutor(it).Execute()
+	assert.Nil(t, err)
+	c := exit.Channel()
+	xs := []int{}
+	for v := range c.C() {
+		xs = append(xs, v.(int))
+	}
+	assert.Equal(t, "", cmp.Diff([]int{1, 2, 3, 4, 5, 6}, xs))
+	assert.Nil(t, c.Err())
+}

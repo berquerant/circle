@@ -260,3 +260,48 @@ func (s *compareExecutor) Execute() (*Iterator, error) {
 	})
 	return NewIterator(xs)
 }
+
+type (
+	flatExecutor struct {
+		it *Iterator
+	}
+)
+
+// NewFlatExecutor returns a new Executor for flat.
+//
+// If it or element of it causes error, iteration ends here.
+func NewFlatExecutor(it *Iterator) Executor {
+	return &flatExecutor{
+		it: it,
+	}
+}
+
+func (s *flatExecutor) Execute() (*Iterator, error) {
+	var (
+		head *Iterator
+		top  interface{}
+		err  error
+		f    func() (interface{}, error)
+	)
+	f = func() (interface{}, error) {
+		if head == nil {
+			if top, err = s.it.Next(); err != nil {
+				return nil, err
+			}
+			if head, err = NewIterator(top); err != nil {
+				return nil, err
+			}
+		}
+		v, err := head.Next()
+		if err == ErrEOI {
+			// next chunk
+			head = nil
+			return f()
+		}
+		if err != nil {
+			return nil, err
+		}
+		return v, nil
+	}
+	return NewIterator(f)
+}
