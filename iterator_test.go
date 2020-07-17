@@ -2,9 +2,11 @@ package circle_test
 
 import (
 	"circle"
+	"context"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -75,9 +77,32 @@ func TestIteratorChannel(t *testing.T) {
 	for name, tc := range map[string]func(t *testing.T){
 		"normal":  testIteratorChannel,
 		"failure": testIteratorChannelFailure,
+		"context": testIteratorChannelWithContext,
 	} {
 		t.Run(name, tc)
 	}
+}
+
+func testIteratorChannelWithContext(t *testing.T) {
+	var i int
+	it, err := circle.NewIterator(func() (interface{}, error) {
+		// infinite iterator
+		time.Sleep(100 * time.Millisecond)
+		defer func() { i++ }()
+		return i, nil
+	})
+	assert.Nil(t, err)
+	var (
+		ctx, cancel = context.WithTimeout(context.TODO(), 150*time.Millisecond)
+		c           = it.ChannelWithContext(ctx)
+		xs          = []int{}
+	)
+	defer cancel()
+	for v := range c.C() {
+		xs = append(xs, v.(int))
+	}
+	assert.Equal(t, "", cmp.Diff([]int{0, 1}, xs))
+	assert.Nil(t, c.Err())
 }
 
 func testIteratorChannel(t *testing.T) {

@@ -1,6 +1,8 @@
 package circle
 
 import (
+	"circle/internal/atomic"
+	"context"
 	"errors"
 	"reflect"
 )
@@ -64,7 +66,12 @@ func (s *Iterator) Next() (interface{}, error) {
 }
 
 // Channel converts the iterator to IteratorChannel.
-func (s *Iterator) Channel() IteratorChannel { return newIteratorChannel(s) }
+func (s *Iterator) Channel() IteratorChannel { return s.channel(context.Background()) }
+
+// ChannelWithContext converts the iterator to IteratorChannel.
+// If context canceled, the channel closes.
+func (s *Iterator) ChannelWithContext(ctx context.Context) IteratorChannel { return s.channel(ctx) }
+func (s *Iterator) channel(ctx context.Context) IteratorChannel            { return newIteratorChannel(ctx, s) }
 
 type (
 	// IteratorChannel is an iterator like a channel.
@@ -76,34 +83,52 @@ type (
 		Err() error
 	}
 	iteratorChannel struct {
-		iter *Iterator
-		c    chan interface{}
-		err  error
+		iter     *Iterator
+		c        chan interface{}
+		err      error
+		isClosed *atomic.Bool
 	}
 )
 
-func newIteratorChannel(iter *Iterator) IteratorChannel {
+func newIteratorChannel(ctx context.Context, iter *Iterator) IteratorChannel {
 	s := &iteratorChannel{
-		iter: iter,
-		c:    make(chan interface{}),
+		iter:     iter,
+		c:        make(chan interface{}),
+		isClosed: atomic.NewBool(false),
 	}
-	go s.iterate()
+	go s.iterate(ctx)
 	return s
 }
 
-func (s *iteratorChannel) iterate() {
+func (s *iteratorChannel) iterate(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		<-ctx.Done()
+		s.isClosed.Set(true)
+		for range s.c {
+		}
+	}()
+
+	defer func() {
+		cancel()
+		close(s.c)
+	}()
+
 	for {
+		if s.isClosed.Get() {
+			return
+		}
 		v, err := s.iter.Next()
 		if err != nil {
 			if err != ErrEOI {
 				s.err = err
 			}
-			close(s.c)
 			return
 		}
 		s.c <- v
 	}
 }
+
 func (s *iteratorChannel) C() <-chan interface{} { return s.c }
 func (s *iteratorChannel) Err() error            { return s.err }
 
