@@ -163,3 +163,31 @@ func TestEitherMap(t *testing.T) {
 		t.Run(tc.title, tc.test)
 	}
 }
+
+func TestTuple(t *testing.T) {
+	t.Run("zero", func(t *testing.T) {
+		v := circle.NewTuple()
+		assert.Equal(t, 0, v.Size())
+		_, ok := v.Get(0)
+		assert.False(t, ok)
+	})
+
+	t.Run("double", func(t *testing.T) {
+		v := circle.NewTuple(1, "two")
+		assert.Equal(t, 2, v.Size())
+		{
+			x, ok := v.Get(0)
+			assert.True(t, ok)
+			assert.Equal(t, 1, x)
+		}
+		{
+			x, ok := v.Get(1)
+			assert.True(t, ok)
+			assert.Equal(t, "two", x)
+		}
+		{
+			_, ok := v.Get(2)
+			assert.False(t, ok)
+		}
+	})
+}

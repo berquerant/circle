@@ -115,3 +115,29 @@ func (s *right) Map(f Mapper) Either {
 	}
 	return &right{v: v}
 }
+
+type (
+	// Tuple is an immutable array.
+	Tuple interface {
+		// Size returns the size of this.
+		Size() int
+		// Get returns an element.
+		// If i is out of range, returns false.
+		Get(i int) (interface{}, bool)
+	}
+
+	tuple struct {
+		v []interface{}
+	}
+)
+
+// NewTuple returns a new Tuple.
+func NewTuple(v ...interface{}) Tuple { return &tuple{v: v} }
+
+func (s *tuple) Size() int { return len(s.v) }
+func (s *tuple) Get(i int) (interface{}, bool) {
+	if i < 0 || i >= len(s.v) {
+		return nil, false
+	}
+	return s.v[i], true
+}
