@@ -61,3 +61,57 @@ func (*nothing) GetOrElse(v interface{}) interface{} { return v }
 func (*nothing) OrElse(v Maybe) Maybe                { return v }
 func (*nothing) Map(Mapper) Maybe                    { return nothingEntity }
 func (*nothing) Filter(Filter) Maybe                 { return nothingEntity }
+
+type (
+	// Either contains successful right or failed left value.
+	Either interface {
+		// IsLeft returns true if this has failed value.
+		IsLeft() bool
+		// IsRight returns true if this has successful value.
+		IsRight() bool
+		// Left returns left value.
+		// If this is not left, returns false.
+		Left() (interface{}, bool)
+		// Right returns right value.
+		// If this is not right, returns false.
+		Right() (interface{}, bool)
+		// GetOrElse returns right value if this is right else returns v.
+		GetOrElse(v interface{}) interface{}
+		// Map applies f to value if this is right.
+		// If f returns error, returns left.
+		Map(f Mapper) Either
+	}
+
+	left struct {
+		v interface{}
+	}
+	right struct {
+		v interface{}
+	}
+)
+
+// NewRight returns a new Right.
+func NewRight(v interface{}) Either { return &right{v: v} }
+
+// NewLeft returns a new Left.
+func NewLeft(v interface{}) Either { return &left{v: v} }
+
+func (*left) IsLeft() bool                        { return true }
+func (*left) IsRight() bool                       { return false }
+func (s *left) Left() (interface{}, bool)         { return s.v, true }
+func (s *left) Right() (interface{}, bool)        { return nil, false }
+func (*left) GetOrElse(v interface{}) interface{} { return v }
+func (s *left) Map(f Mapper) Either               { return s }
+
+func (*right) IsLeft() bool                        { return false }
+func (*right) IsRight() bool                       { return true }
+func (*right) Left() (interface{}, bool)           { return nil, false }
+func (s *right) Right() (interface{}, bool)        { return s.v, true }
+func (s *right) GetOrElse(interface{}) interface{} { return s.v }
+func (s *right) Map(f Mapper) Either {
+	v, err := f.Apply(s.v)
+	if err != nil {
+		return &left{v: err}
+	}
+	return &right{v: v}
+}
