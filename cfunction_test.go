@@ -40,7 +40,7 @@ func (s *testcaseMaybeMapper) test(t *testing.T) {
 func TestMaybeMapper(t *testing.T) {
 	for _, tc := range []*testcaseMaybeMapper{
 		{
-			title:        "not tuple",
+			title:        "not maybe",
 			arg:          1,
 			f:            func(int) (int, error) { return 0, nil },
 			isApplyError: true,
@@ -56,6 +56,12 @@ func TestMaybeMapper(t *testing.T) {
 			arg:   circle.NewJust(1),
 			f:     func(x int) (int, error) { return x + 1, nil },
 			want:  circle.NewJust(2),
+		},
+		{
+			title: "failure",
+			arg:   circle.NewJust(1),
+			f:     func(int) (int, error) { return 0, errors.New("failure") },
+			want:  circle.NewNothing(),
 		},
 	} {
 		t.Run(tc.title, tc.test)
