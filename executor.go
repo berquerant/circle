@@ -8,7 +8,7 @@ import (
 type (
 	// Executor provides an interface for applying function to iterator.
 	Executor interface {
-		Execute() (*Iterator, error)
+		Execute() (Iterator, error)
 	}
 
 	// ExecutorOption sets an option for Executor.
@@ -22,21 +22,21 @@ type (
 type (
 	mapExecutor struct {
 		f  Mapper
-		it *Iterator
+		it Iterator
 	}
 )
 
 // NewMapExecutor returns a new Executor for map.
 //
 // If f returns error, the argument of f is ignored, this does not yield it.
-func NewMapExecutor(f Mapper, it *Iterator) Executor {
+func NewMapExecutor(f Mapper, it Iterator) Executor {
 	return &mapExecutor{
 		f:  f,
 		it: it,
 	}
 }
 
-func (s *mapExecutor) Execute() (*Iterator, error) {
+func (s *mapExecutor) Execute() (Iterator, error) {
 	var f func() (interface{}, error)
 	f = func() (interface{}, error) {
 		x, err := s.it.Next()
@@ -56,21 +56,21 @@ func (s *mapExecutor) Execute() (*Iterator, error) {
 type (
 	filterExecutor struct {
 		f  Filter
-		it *Iterator
+		it Iterator
 	}
 )
 
 // NewFilterExecutor returns a new Executor for filter.
 //
 // If f returns error, the iterator ends here.
-func NewFilterExecutor(f Filter, it *Iterator) Executor {
+func NewFilterExecutor(f Filter, it Iterator) Executor {
 	return &filterExecutor{
 		f:  f,
 		it: it,
 	}
 }
 
-func (s *filterExecutor) Execute() (*Iterator, error) {
+func (s *filterExecutor) Execute() (Iterator, error) {
 	var f func() (interface{}, error)
 	f = func() (interface{}, error) {
 		x, err := s.it.Next()
@@ -98,7 +98,7 @@ var (
 type (
 	aggregateExecutor struct {
 		f   Aggregator
-		it  *Iterator
+		it  Iterator
 		iv  interface{}
 		opt *executorOption
 	}
@@ -122,7 +122,7 @@ const (
 // NewAggregateExecutor returns a new Executor for aggregate.
 //
 // If f is not appropriate for aggregate, returns ErrInvalidAggregateExecutor.
-func NewAggregateExecutor(f Aggregator, it *Iterator, iv interface{}, opt ...ExecutorOption) (Executor, error) {
+func NewAggregateExecutor(f Aggregator, it Iterator, iv interface{}, opt ...ExecutorOption) (Executor, error) {
 	ex := &aggregateExecutor{
 		f:   f,
 		it:  it,
@@ -174,7 +174,7 @@ func (s *aggregateExecutor) executorType() AggregateExecutorType {
 	}
 }
 
-func (s *aggregateExecutor) Execute() (*Iterator, error) {
+func (s *aggregateExecutor) Execute() (Iterator, error) {
 	switch s.executorType() {
 	case RAggregateExecutorType:
 		var isEOI bool
@@ -234,21 +234,21 @@ func (s *aggregateExecutor) foldl(acc interface{}) (interface{}, error) {
 type (
 	compareExecutor struct {
 		f  Comparator
-		it *Iterator
+		it Iterator
 	}
 )
 
 // NewCompareExecutor returns a new Executor for sort.
 //
 // If f returns error, regard the right argument is larger.
-func NewCompareExecutor(f Comparator, it *Iterator) Executor {
+func NewCompareExecutor(f Comparator, it Iterator) Executor {
 	return &compareExecutor{
 		f:  f,
 		it: it,
 	}
 }
 
-func (s *compareExecutor) Execute() (*Iterator, error) {
+func (s *compareExecutor) Execute() (Iterator, error) {
 	xs := []interface{}{}
 	for x := range s.it.Channel().C() {
 		xs = append(xs, x)
@@ -263,22 +263,22 @@ func (s *compareExecutor) Execute() (*Iterator, error) {
 
 type (
 	flatExecutor struct {
-		it *Iterator
+		it Iterator
 	}
 )
 
 // NewFlatExecutor returns a new Executor for flat.
 //
 // If it or element of it causes error, iteration ends here.
-func NewFlatExecutor(it *Iterator) Executor {
+func NewFlatExecutor(it Iterator) Executor {
 	return &flatExecutor{
 		it: it,
 	}
 }
 
-func (s *flatExecutor) Execute() (*Iterator, error) {
+func (s *flatExecutor) Execute() (Iterator, error) {
 	var (
-		head *Iterator
+		head Iterator
 		top  interface{}
 		err  error
 		f    func() (interface{}, error)

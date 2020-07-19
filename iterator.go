@@ -18,7 +18,21 @@ var (
 
 type (
 	// Iterator provides an interface for iterate on some iterables.
-	Iterator struct {
+	Iterator interface {
+		// Next yields the next element.
+		//
+		// This returns an error if the source of this iterator yields an error
+		// or the iteration ends.
+		//
+		// Once this returns some error, returns ErrEOI forever.
+		Next() (interface{}, error)
+		// Channel converts the iterator to IteratorChannel.
+		Channel() IteratorChannel
+		// ChannelWithContext converts the iterator to IteratorChannel.
+		// If context canceled, the channel closes.
+		ChannelWithContext(ctx context.Context) IteratorChannel
+	}
+	iterator struct {
 		isEOI bool
 		f     IteratorFunc
 	}
@@ -33,7 +47,7 @@ type (
 // If v is an IteratorFunc, returns an iterator that yields a value from v calls.
 // If v is an Iterator, returns v.
 // Otherwise, returns an iterator that yields v.
-func NewIterator(v interface{}) (*Iterator, error) {
+func NewIterator(v interface{}) (Iterator, error) {
 	f, err := newIteratorFunc(v)
 	if err != nil {
 		return nil, err
@@ -41,19 +55,13 @@ func NewIterator(v interface{}) (*Iterator, error) {
 	return newIterator(f), nil
 }
 
-func newIterator(f IteratorFunc) *Iterator {
-	return &Iterator{
+func newIterator(f IteratorFunc) Iterator {
+	return &iterator{
 		f: f,
 	}
 }
 
-// Next yields the next element.
-//
-// This returns an error if the source of this iterator yields an error
-// or the iteration ends.
-//
-// Once this returns some error, returns ErrEOI forever.
-func (s *Iterator) Next() (interface{}, error) {
+func (s *iterator) Next() (interface{}, error) {
 	if s.isEOI {
 		return nil, ErrEOI
 	}
@@ -65,13 +73,9 @@ func (s *Iterator) Next() (interface{}, error) {
 	return v, nil
 }
 
-// Channel converts the iterator to IteratorChannel.
-func (s *Iterator) Channel() IteratorChannel { return s.channel(context.Background()) }
-
-// ChannelWithContext converts the iterator to IteratorChannel.
-// If context canceled, the channel closes.
-func (s *Iterator) ChannelWithContext(ctx context.Context) IteratorChannel { return s.channel(ctx) }
-func (s *Iterator) channel(ctx context.Context) IteratorChannel            { return newIteratorChannel(ctx, s) }
+func (s *iterator) Channel() IteratorChannel                               { return s.channel(context.Background()) }
+func (s *iterator) ChannelWithContext(ctx context.Context) IteratorChannel { return s.channel(ctx) }
+func (s *iterator) channel(ctx context.Context) IteratorChannel            { return newIteratorChannel(ctx, s) }
 
 type (
 	// IteratorChannel is an iterator like a channel.
@@ -83,14 +87,14 @@ type (
 		Err() error
 	}
 	iteratorChannel struct {
-		iter     *Iterator
+		iter     Iterator
 		c        chan interface{}
 		err      error
 		isClosed *atomic.Bool
 	}
 )
 
-func newIteratorChannel(ctx context.Context, iter *Iterator) IteratorChannel {
+func newIteratorChannel(ctx context.Context, iter Iterator) IteratorChannel {
 	s := &iteratorChannel{
 		iter:     iter,
 		c:        make(chan interface{}),
@@ -143,7 +147,7 @@ func newIteratorFunc(v interface{}) (IteratorFunc, error) {
 		return IteratorFunc(v), nil
 	case IteratorFunc:
 		return v, nil
-	case *Iterator:
+	case Iterator:
 		return v.Next, nil
 	}
 	switch reflect.TypeOf(v).Kind() {

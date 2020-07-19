@@ -154,7 +154,7 @@ func testNilIterator(t *testing.T) {
 	assert.Equal(t, circle.ErrEOI, err, "should yield nothing.")
 }
 
-func iteratorToInts(it *circle.Iterator) ([]int, error) {
+func iteratorToInts(it circle.Iterator) ([]int, error) {
 	v := []int{}
 	for {
 		x, err := it.Next()
