@@ -80,6 +80,10 @@ type (
 		// Map applies f to value if this is right.
 		// If f returns error, returns left.
 		Map(f Mapper) Either
+		// ToMaybe converts this to Maybe.
+		// If this is right, returns Just,
+		// else returns Nothing.
+		ToMaybe() Maybe
 	}
 
 	left struct {
@@ -102,6 +106,7 @@ func (s *left) Left() (interface{}, bool)         { return s.v, true }
 func (s *left) Right() (interface{}, bool)        { return nil, false }
 func (*left) GetOrElse(v interface{}) interface{} { return v }
 func (s *left) Map(f Mapper) Either               { return s }
+func (*left) ToMaybe() Maybe                      { return nothingEntity }
 
 func (*right) IsLeft() bool                        { return false }
 func (*right) IsRight() bool                       { return true }
@@ -115,6 +120,7 @@ func (s *right) Map(f Mapper) Either {
 	}
 	return &right{v: v}
 }
+func (s *right) ToMaybe() Maybe { return &just{v: s.v} }
 
 type (
 	// Tuple is an immutable array.
