@@ -159,6 +159,12 @@ func TestTupleMapper(t *testing.T) {
 			isApplyError: true,
 		},
 		{
+			title:        "invalid argument",
+			arg:          circle.NewTuple("failure", 100),
+			f:            func(int, int) (int, error) { return 0, nil },
+			isApplyError: true,
+		},
+		{
 			title:        "tuple size error",
 			arg:          circle.NewTuple(1),
 			f:            func(int, string) (int, error) { return 0, nil },

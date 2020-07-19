@@ -3,6 +3,7 @@ package circle
 import (
 	"circle/internal/reflection"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -85,7 +86,13 @@ func isTupleMapper(f interface{}) bool {
 		t.Out(1).String() == "error"
 }
 
-func (s *tupleMapper) Apply(v interface{}) (interface{}, error) {
+func (s *tupleMapper) Apply(v interface{}) (ret interface{}, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = nil
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
 	x, ok := v.(Tuple)
 	if !ok {
 		return nil, ErrApply

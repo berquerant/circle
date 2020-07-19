@@ -49,6 +49,12 @@ func testInvalidMapper(t *testing.T) {
 
 func testMapperApply(t *testing.T) {
 	for name, tc := range map[string]func(t *testing.T){
+		"invalid argument": func(t *testing.T) {
+			f, err := circle.NewMapper(strconv.Atoi)
+			assert.Nil(t, err)
+			_, err = f.Apply(100)
+			assert.NotNil(t, err)
+		},
 		"atoi": func(t *testing.T) {
 			f, err := circle.NewMapper(strconv.Atoi)
 			assert.Nil(t, err)
@@ -104,27 +110,36 @@ func testInvalidFilter(t *testing.T) {
 }
 
 func testFilterApply(t *testing.T) {
-	f, err := circle.NewFilter(func(x string) (bool, error) {
-		if x == "" {
-			return false, errors.New("empty")
-		}
-		return len(x) < 5, nil
+	t.Run("invalid argument", func(t *testing.T) {
+		f, err := circle.NewFilter(func(string) (bool, error) { return true, nil })
+		assert.Nil(t, err)
+		_, err = f.Apply(1)
+		assert.NotNil(t, err)
 	})
-	assert.Nil(t, err)
-	{
-		_, err := f.Apply("")
-		assert.Equal(t, errors.New("empty"), err)
-	}
-	{
-		v, err := f.Apply("cat")
+
+	t.Run("do", func(t *testing.T) {
+		f, err := circle.NewFilter(func(x string) (bool, error) {
+			if x == "" {
+				return false, errors.New("empty")
+			}
+			return len(x) < 5, nil
+		})
 		assert.Nil(t, err)
-		assert.True(t, v)
-	}
-	{
-		v, err := f.Apply("timeline")
-		assert.Nil(t, err)
-		assert.False(t, v)
-	}
+		{
+			_, err := f.Apply("")
+			assert.Equal(t, errors.New("empty"), err)
+		}
+		{
+			v, err := f.Apply("cat")
+			assert.Nil(t, err)
+			assert.True(t, v)
+		}
+		{
+			v, err := f.Apply("timeline")
+			assert.Nil(t, err)
+			assert.False(t, v)
+		}
+	})
 }
 
 func TestAggregator(t *testing.T) {
@@ -141,6 +156,12 @@ func testAggregatorType(t *testing.T) {
 		"invalid": func(t *testing.T) {
 			_, err := circle.NewAggregator(func() {})
 			assert.Equal(t, circle.ErrInvalidAggregator, err)
+		},
+		"invalid argument": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(int, int) (int, error) { return 0, nil })
+			assert.Nil(t, err)
+			_, err = f.Apply("1", "2")
+			assert.NotNil(t, err)
 		},
 		"right": func(t *testing.T) {
 			f, err := circle.NewAggregator(func(_ int, _ string) (string, error) { return "", nil })
@@ -197,29 +218,40 @@ func testInvalidComparator(t *testing.T) {
 }
 
 func testComparatorApply(t *testing.T) {
-	type T struct {
-		i int
-	}
-	f, err := circle.NewComparator(func(x, y *T) (bool, error) {
-		if x == nil || y == nil {
-			return false, errors.New("white")
-		}
-		return x.i < y.i, nil
+	t.Run("invalid argument", func(t *testing.T) {
+		f, err := circle.NewComparator(func(int, int) (bool, error) {
+			return true, nil
+		})
+		assert.Nil(t, err)
+		_, err = f.Apply("1", "2")
+		assert.NotNil(t, err)
 	})
-	assert.Nil(t, err)
-	{
-		var x *T
-		_, err := f.Apply(x, &T{10})
-		assert.Equal(t, errors.New("white"), err)
-	}
-	{
-		v, err := f.Apply(&T{5}, &T{10})
+
+	t.Run("do", func(t *testing.T) {
+		type T struct {
+			i int
+		}
+		f, err := circle.NewComparator(func(x, y *T) (bool, error) {
+			if x == nil || y == nil {
+				return false, errors.New("white")
+			}
+			return x.i < y.i, nil
+		})
 		assert.Nil(t, err)
-		assert.True(t, v)
-	}
-	{
-		v, err := f.Apply(&T{10}, &T{5})
-		assert.Nil(t, err)
-		assert.False(t, v)
-	}
+		{
+			var x *T
+			_, err := f.Apply(x, &T{10})
+			assert.Equal(t, errors.New("white"), err)
+		}
+		{
+			v, err := f.Apply(&T{5}, &T{10})
+			assert.Nil(t, err)
+			assert.True(t, v)
+		}
+		{
+			v, err := f.Apply(&T{10}, &T{5})
+			assert.Nil(t, err)
+			assert.False(t, v)
+		}
+	})
 }

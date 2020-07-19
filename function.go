@@ -3,6 +3,7 @@ package circle
 import (
 	"circle/internal/reflection"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -39,7 +40,13 @@ func NewMapper(f interface{}) (Mapper, error) {
 	}, nil
 }
 
-func (s *mapper) Apply(v interface{}) (interface{}, error) {
+func (s *mapper) Apply(v interface{}) (ret interface{}, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = nil
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
 	av, err := reflection.Convert(v, reflect.TypeOf(s.f).In(0), true)
 	if err != nil {
 		return nil, err
@@ -88,7 +95,13 @@ func NewFilter(f interface{}) (Filter, error) {
 	}, nil
 }
 
-func (s *filter) Apply(v interface{}) (bool, error) {
+func (s *filter) Apply(v interface{}) (ret bool, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = false
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
 	av, err := reflection.Convert(v, reflect.TypeOf(s.f).In(0), true)
 	if err != nil {
 		return false, err
@@ -175,7 +188,13 @@ func NewAggregator(f interface{}) (Aggregator, error) {
 
 func (s *aggregator) Type() AggregatorType { return s.t }
 
-func (s *aggregator) Apply(x, y interface{}) (interface{}, error) {
+func (s *aggregator) Apply(x, y interface{}) (ret interface{}, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = nil
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
 	t := reflect.TypeOf(s.f)
 	vx, err := reflection.Convert(x, t.In(0), true)
 	if err != nil {
@@ -230,7 +249,13 @@ func NewComparator(f interface{}) (Comparator, error) {
 	}, nil
 }
 
-func (s *comparator) Apply(x, y interface{}) (bool, error) {
+func (s *comparator) Apply(x, y interface{}) (ret bool, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = false
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
 	t := reflect.TypeOf(s.f)
 	vx, err := reflection.Convert(x, t.In(0), true)
 	if err != nil {
