@@ -202,3 +202,83 @@ func TestTupleMapper(t *testing.T) {
 		t.Run(tc.title, tc.test)
 	}
 }
+
+type (
+	testcaseTupleFilter struct {
+		title        string
+		arg          interface{}
+		f            interface{}
+		want         bool
+		isApplyError bool
+	}
+)
+
+func (s *testcaseTupleFilter) test(t *testing.T) {
+	f, err := circle.NewTupleFilter(s.f)
+	assert.Nil(t, err)
+	got, err := f.Apply(s.arg)
+	assert.Equal(t, s.isApplyError, err != nil)
+	if s.isApplyError {
+		return
+	}
+	assert.Equal(t, s.want, got)
+}
+
+func TestTupleFilter(t *testing.T) {
+	for _, tc := range []*testcaseTupleFilter{
+		{
+			title:        "not tuple",
+			arg:          1,
+			f:            func(int, int) (bool, error) { return true, nil },
+			isApplyError: true,
+		},
+		{
+			title:        "invalid argument",
+			arg:          circle.NewTuple(1, "2"),
+			f:            func(int, int) (bool, error) { return true, nil },
+			isApplyError: true,
+		},
+		{
+			title:        "tuple size error",
+			arg:          circle.NewTuple(1),
+			f:            func(int, int) (bool, error) { return true, nil },
+			isApplyError: true,
+		},
+		{
+			title: "empty tuple",
+			arg:   circle.NewTuple(),
+			f:     func() (bool, error) { return true, nil },
+			want:  true,
+		},
+		{
+			title: "unit",
+			arg:   circle.NewTuple(1),
+			f:     func(x int) (bool, error) { return x == 1, nil },
+			want:  true,
+		},
+		{
+			title: "unit false",
+			arg:   circle.NewTuple(1),
+			f:     func(x int) (bool, error) { return x != 1, nil },
+			want:  false,
+		},
+		{
+			title: "tuple",
+			arg:   circle.NewTuple(1, 2),
+			f:     func(x, y int) (bool, error) { return x == 1 && y == 2, nil },
+			want:  true,
+		},
+		{
+			title: "tuple tuple",
+			arg:   circle.NewTuple(circle.NewTuple(1), circle.NewTuple(2)),
+			f: func(x, y circle.Tuple) (bool, error) {
+				a, _ := x.Get(0)
+				b, _ := y.Get(0)
+				return a.(int) == 1 && b.(int) == 2, nil
+			},
+			want: true,
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}

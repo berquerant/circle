@@ -123,3 +123,66 @@ func (s *tupleMapper) Apply(v interface{}) (ret interface{}, rerr error) {
 	}
 	return r0, nil
 }
+
+type (
+	tupleFilter struct {
+		f interface{}
+	}
+)
+
+// NewTupleFilter returns a new Filter for Tuple.
+//
+// If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
+func NewTupleFilter(f interface{}) (Filter, error) {
+	if !isTupleFilter(f) {
+		return nil, ErrInvalidFilter
+	}
+	return &tupleFilter{
+		f: f,
+	}, nil
+}
+
+func isTupleFilter(f interface{}) bool {
+	t := reflect.TypeOf(f)
+	return t.Kind() == reflect.Func &&
+		t.NumOut() == 2 &&
+		t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+}
+
+func (s *tupleFilter) Apply(v interface{}) (ret bool, rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			ret = false
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
+	x, ok := v.(Tuple)
+	if !ok {
+		return false, ErrApply
+	}
+	t := reflect.TypeOf(s.f)
+	if x.Size() != t.NumIn() {
+		return false, ErrApply
+	}
+	a := make([]reflect.Value, x.Size())
+	for i := 0; i < x.Size(); i++ {
+		p, ok := x.Get(i)
+		if !ok {
+			return false, ErrApply
+		}
+		v, err := reflection.Convert(p, t.In(i), true)
+		if err != nil {
+			return false, err
+		}
+		a[i] = v
+	}
+	var (
+		r  = reflect.ValueOf(s.f).Call(a)
+		r0 = r[0].Bool()
+		r1 = r[1].Interface()
+	)
+	if err, ok := r1.(error); ok {
+		return r0, err
+	}
+	return r0, nil
+}
