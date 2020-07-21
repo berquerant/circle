@@ -142,6 +142,7 @@ func TestNewIterator(t *testing.T) {
 		"func":     testIteratorFunc,
 		"nil":      testNilIterator,
 		"iterator": testIteratorFromIterator,
+		"map":      testMapIterator,
 	} {
 		t.Run(name, tc)
 	}
@@ -231,4 +232,27 @@ func testIteratorFunc(t *testing.T) {
 	got, err := iteratorToInts(it)
 	assert.Equal(t, e, err)
 	assert.Equal(t, "", cmp.Diff([]int{0, 1, 2}, got))
+}
+
+func testMapIterator(t *testing.T) {
+	v := map[string]int{
+		"a": 1,
+		"b": 2,
+		"c": 3,
+	}
+	it, err := circle.NewIterator(v)
+	assert.Nil(t, err)
+	c := it.Channel()
+	d := map[string]int{}
+	for x := range c.C() {
+		p, ok := x.(circle.Tuple)
+		assert.True(t, ok)
+		a, ok := p.Get(0)
+		assert.True(t, ok)
+		b, ok := p.Get(1)
+		assert.True(t, ok)
+		d[a.(string)] = b.(int)
+	}
+	assert.Equal(t, "", cmp.Diff(v, d))
+	assert.Nil(t, c.Err())
 }

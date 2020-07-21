@@ -44,6 +44,7 @@ type (
 //
 // If v is nil, returns an iterator that yields nothing.
 // If v is a slice, an array or a receivable channel, returns an iterator that iterates on them.
+// If v is a map, returns an iterator that iterates on it, an element is Tuple, (Key, Value).
 // If v is an IteratorFunc, returns an iterator that yields a value from v calls.
 // If v is an Iterator, returns v.
 // Otherwise, returns an iterator that yields v.
@@ -155,6 +156,8 @@ func newIteratorFunc(v interface{}) (IteratorFunc, error) {
 		return newArrayOrSliceIteratorFunc(v)
 	case reflect.Chan:
 		return newChanIteratorFunc(v)
+	case reflect.Map:
+		return newMapIteratorFunc(v)
 	default:
 		return newOrphanIteratorFunc(v)
 	}
@@ -203,6 +206,20 @@ func newChanIteratorFunc(v interface{}) (IteratorFunc, error) {
 		x, ok := c.Recv()
 		if ok {
 			return x.Interface(), nil
+		}
+		return nil, ErrEOI
+	}, nil
+}
+
+func newMapIteratorFunc(v interface{}) (IteratorFunc, error) {
+	t := reflect.TypeOf(v)
+	if t.Kind() != reflect.Map {
+		return nil, ErrCannotCreateIterator
+	}
+	iter := reflect.ValueOf(v).MapRange()
+	return func() (interface{}, error) {
+		if iter.Next() {
+			return NewTuple(iter.Key().Interface(), iter.Value().Interface()), nil
 		}
 		return nil, ErrEOI
 	}, nil
