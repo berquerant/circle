@@ -1,5 +1,10 @@
 package circle
 
+import (
+	"fmt"
+	"strings"
+)
+
 type (
 	// Maybe is an optional value.
 	Maybe interface {
@@ -54,6 +59,7 @@ func (s *just) Filter(f Filter) Maybe {
 	}
 	return nothingEntity
 }
+func (s *just) String() string { return fmt.Sprintf("Just(%v)", s.v) }
 
 func (*nothing) IsNothing() bool                     { return true }
 func (*nothing) Get() (interface{}, bool)            { return nil, false }
@@ -61,6 +67,7 @@ func (*nothing) GetOrElse(v interface{}) interface{} { return v }
 func (*nothing) OrElse(v Maybe) Maybe                { return v }
 func (*nothing) Map(Mapper) Maybe                    { return nothingEntity }
 func (*nothing) Filter(Filter) Maybe                 { return nothingEntity }
+func (*nothing) String() string                      { return "Nothing" }
 
 type (
 	// Either contains successful right or failed left value.
@@ -107,6 +114,7 @@ func (s *left) Right() (interface{}, bool)        { return nil, false }
 func (*left) GetOrElse(v interface{}) interface{} { return v }
 func (s *left) Map(f Mapper) Either               { return s }
 func (*left) ToMaybe() Maybe                      { return nothingEntity }
+func (s *left) String() string                    { return fmt.Sprintf("Left(%v)", s.v) }
 
 func (*right) IsLeft() bool                        { return false }
 func (*right) IsRight() bool                       { return true }
@@ -121,6 +129,7 @@ func (s *right) Map(f Mapper) Either {
 	return &right{v: v}
 }
 func (s *right) ToMaybe() Maybe { return &just{v: s.v} }
+func (s *right) String() string { return fmt.Sprintf("Right(%v)", s.v) }
 
 type (
 	// Tuple is an immutable array.
@@ -146,4 +155,11 @@ func (s *tuple) Get(i int) (interface{}, bool) {
 		return nil, false
 	}
 	return s.v[i], true
+}
+func (s *tuple) String() string {
+	a := make([]string, len(s.v))
+	for i, x := range s.v {
+		a[i] = fmt.Sprint(x)
+	}
+	return fmt.Sprintf("Tuple(%s)", strings.Join(a, ","))
 }

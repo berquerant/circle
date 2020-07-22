@@ -269,6 +269,7 @@ type (
 
 // NewFlatExecutor returns a new Executor for flat.
 //
+// This creates a new iterator by NewIterator() from each element and yields from them sequentially.
 // If it or element of it causes error, iteration ends here.
 func NewFlatExecutor(it Iterator) Executor {
 	return &flatExecutor{

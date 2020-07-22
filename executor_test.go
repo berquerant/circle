@@ -322,6 +322,29 @@ func ExampleNewFlatExecutor() {
 	// me
 }
 
+func ExampleNewFlatExecutor_map() {
+	var isEOI bool
+	it, _ := circle.NewIterator(func() (interface{}, error) {
+		if isEOI {
+			return nil, circle.ErrEOI
+		}
+		isEOI = true
+		return map[string]int{
+			"a": 1,
+			"b": 2,
+			"c": 3,
+		}, nil
+	})
+	exit, _ := circle.NewFlatExecutor(it).Execute()
+	for v := range exit.Channel().C() {
+		fmt.Println(v)
+	}
+	// Output:
+	// Tuple(a,1)
+	// Tuple(b,2)
+	// Tuple(c,3)
+}
+
 func TestFlatExecutor(t *testing.T) {
 	for name, tc := range map[string]func(t *testing.T){
 		"noop":    testFlatExecutorNoop,

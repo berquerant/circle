@@ -12,7 +12,7 @@ var (
 )
 
 type (
-	// Mapper is a func(A) (B, error)
+	// Mapper is a func(A) (B, error).
 	Mapper interface {
 		Apply(v interface{}) (interface{}, error)
 	}
@@ -67,7 +67,7 @@ var (
 )
 
 type (
-	// Filter is a func(A) (bool, error)
+	// Filter is a func(A) (bool, error).
 	Filter interface {
 		Apply(v interface{}) (bool, error)
 	}
@@ -122,7 +122,7 @@ var (
 )
 
 type (
-	// Aggregator is a func(A, B) (B, error) or func(B, A) (B, error)
+	// Aggregator is a func(A, B) (B, error) or func(B, A) (B, error).
 	Aggregator interface {
 		Apply(x, y interface{}) (interface{}, error)
 		Type() AggregatorType
@@ -220,7 +220,7 @@ var (
 )
 
 type (
-	// Comparator is a func(A, A) (bool, error)
+	// Comparator is a func(A, A) (bool, error).
 	Comparator interface {
 		Apply(x, y interface{}) (bool, error)
 	}

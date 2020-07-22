@@ -24,6 +24,7 @@ type (
 		// If f returns error, the element is regarded as bigger.
 		Sort(f Comparator, opt ...StreamOption) Stream
 		// Flat flattens Stream.
+		// See NewFlatExecutor().
 		Flat(opt ...StreamOption) Stream
 		Executor
 	}

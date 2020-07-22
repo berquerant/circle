@@ -19,6 +19,8 @@ type (
 
 // NewMaybeMapper returns a new Mapper for Maybe.
 //
+// If you want to convert Maybe[A] to B, f is a func(A) (B, error).
+//
 // If f returns error or argument is nothing, returns nothing.
 func NewMaybeMapper(f interface{}) (Mapper, error) {
 	m, err := NewMapper(f)
@@ -44,6 +46,8 @@ type (
 
 // NewEitherMapper returns a new Mapper for Either.
 //
+// If you want to convert Either[A] to B, f is a func(A) (B, error).
+//
 // If f returns error or argument is left, returns left.
 func NewEitherMapper(f interface{}) (Mapper, error) {
 	m, err := NewMapper(f)
@@ -68,6 +72,8 @@ type (
 )
 
 // NewTupleMapper returns a new Mapper for Tuple.
+//
+// If you want to convert Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (B, error).
 //
 // If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
 func NewTupleMapper(f interface{}) (Mapper, error) {
@@ -131,6 +137,8 @@ type (
 )
 
 // NewTupleFilter returns a new Filter for Tuple.
+//
+// If you want to filter Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (bool, error).
 //
 // If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
 func NewTupleFilter(f interface{}) (Filter, error) {

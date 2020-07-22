@@ -36,18 +36,23 @@ type (
 		isEOI bool
 		f     IteratorFunc
 	}
-	// IteratorFunc is an iterator as function.
+	// IteratorFunc is an iterator as a function.
 	IteratorFunc func() (interface{}, error)
 )
 
 // NewIterator returns a new Iterator.
 //
 // If v is nil, returns an iterator that yields nothing.
+//
 // If v is a slice, an array or a receivable channel, returns an iterator that iterates on them.
+//
 // If v is a map, returns an iterator that iterates on it, an element is Tuple, (Key, Value).
+//
 // If v is an IteratorFunc, returns an iterator that yields a value from v calls.
+//
 // If v is an Iterator, returns v.
-// Otherwise, returns an iterator that yields v.
+//
+// Otherwise, returns an iterator that yields v itself.
 func NewIterator(v interface{}) (Iterator, error) {
 	f, err := newIteratorFunc(v)
 	if err != nil {

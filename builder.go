@@ -1,3 +1,6 @@
+/*
+Package circle provides a stream API.
+*/
 package circle
 
 import "fmt"
@@ -21,7 +24,7 @@ type (
 		EitherMap(f interface{}, opt ...StreamOption) StreamBuilder
 		// TupleMap maps stream with Tuple.
 		// Converts each element by f, func(A1, A2, ..., An) (B, error).
-		// If an element is not Tuple or size of Tuple not equal to n or type of each element do not match to A1, A2, ...., An,
+		// If an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An,
 		// it is filtered from this stream.
 		TupleMap(f interface{}, opt ...StreamOption) StreamBuilder
 		// Filter filters stream.
@@ -33,7 +36,7 @@ type (
 		// Select elements by f, func(A1, A2, ..., An) (bool, error).
 		// If f returns false, the element is filtered from this stream.
 		// If f returns error,
-		// or an element is not Tuple or size of Tuple not equal to n or type of each element do not match to A1, A2, ...., An,
+		// or an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An,
 		// stops streaming.
 		TupleFilter(f interface{}, opt ...StreamOption) StreamBuilder
 		// Aggregate aggregates stream.
@@ -44,6 +47,7 @@ type (
 		// If f returns error, the element is regarded as bigger.
 		Sort(f interface{}, opt ...StreamOption) StreamBuilder
 		// Flat flattens stream.
+		// See NewFlatExecutor().
 		Flat(opt ...StreamOption) StreamBuilder
 		Executor
 	}
