@@ -1,4 +1,4 @@
-## circle
+## circle [![GoDoc](https://godoc.org/github.com/berquerant/circle?status.svg)](https://godoc.org/github.com/berquerant/circle)
 
 circle provides sequences which support aggregation operations.
 
