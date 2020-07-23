@@ -1,4 +1,4 @@
-module circle
+module github.com/berquerant/circle
 
 go 1.14
 

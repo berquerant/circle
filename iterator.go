@@ -1,10 +1,11 @@
 package circle
 
 import (
-	"circle/internal/atomic"
 	"context"
 	"errors"
 	"reflect"
+
+	"github.com/berquerant/circle/internal/atomic"
 )
 
 var (

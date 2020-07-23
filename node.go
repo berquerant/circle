@@ -1,9 +1,10 @@
 package circle
 
 import (
-	"circle/internal/util"
 	"context"
 	"fmt"
+
+	"github.com/berquerant/circle/internal/util"
 )
 
 type (

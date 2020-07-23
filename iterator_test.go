@@ -1,12 +1,13 @@
 package circle_test
 
 import (
-	"circle"
 	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/berquerant/circle"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"

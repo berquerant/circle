@@ -1,10 +1,11 @@
 package circle
 
 import (
-	"circle/internal/reflection"
 	"errors"
 	"fmt"
 	"reflect"
+
+	"github.com/berquerant/circle/internal/reflection"
 )
 
 var (

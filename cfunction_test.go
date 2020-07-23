@@ -1,10 +1,11 @@
 package circle_test
 
 import (
-	"circle"
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/berquerant/circle"
 
 	"github.com/stretchr/testify/assert"
 )

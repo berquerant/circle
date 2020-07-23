@@ -1,9 +1,10 @@
 package circle_test
 
 import (
-	"circle"
 	"fmt"
 	"testing"
+
+	"github.com/berquerant/circle"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
