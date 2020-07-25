@@ -195,3 +195,36 @@ func (s *tupleFilter) Apply(v interface{}) (ret bool, rerr error) {
 	}
 	return r0, nil
 }
+
+type (
+	maybeConsumer struct {
+		fj Consumer
+		fn Consumer
+	}
+)
+
+// NewMaybeConsumer returns a new Consumer for Maybe.
+// If you want to consume Maybe[A] that is not nothing, f is a func(A) error.
+// g is a func() error to consume Nothing.
+func NewMaybeConsumer(f interface{}, g func() error) (Consumer, error) {
+	fj, err := NewConsumer(f)
+	if err != nil {
+		return nil, err
+	}
+	fn, err := NewConsumer(func(interface{}) error { return g() })
+	if err != nil {
+		return nil, err
+	}
+	return &maybeConsumer{
+		fj: fj,
+		fn: fn,
+	}, nil
+}
+
+func (s *maybeConsumer) Apply(x interface{}) error {
+	v, ok := x.(Maybe)
+	if !ok {
+		return ErrApply
+	}
+	return v.Consume(s.fj, s.fn)
+}

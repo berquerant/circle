@@ -79,6 +79,21 @@ func TestStreamBuilderConsume(t *testing.T) {
 			},
 			want: []interface{}{2, 3, 4},
 		},
+		{
+			title: "maybe consume",
+			src:   []circle.Maybe{circle.NewJust(1), circle.NewNothing(), circle.NewJust(10)},
+			consume: func(it circle.Iterator, ch chan<- interface{}) error {
+				return circle.NewStreamBuilder(it).
+					MaybeConsume(func(x int) error {
+						ch <- x
+						return nil
+					}, func() error {
+						ch <- "nothing"
+						return nil
+					})
+			},
+			want: []interface{}{1, "nothing", 10},
+		},
 	} {
 		t.Run(tc.title, tc.test)
 	}

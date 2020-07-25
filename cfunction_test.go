@@ -70,6 +70,94 @@ func TestMaybeMapper(t *testing.T) {
 }
 
 type (
+	testcaseMaybeConsumer struct {
+		title        string
+		arg          interface{}
+		fg           func(chan<- interface{}) (interface{}, func() error)
+		want         interface{}
+		isApplyError bool
+	}
+)
+
+func (s *testcaseMaybeConsumer) test(t *testing.T) {
+	ch := make(chan interface{})
+	f, g := s.fg(ch)
+	c, err := circle.NewMaybeConsumer(f, g)
+	assert.Nil(t, err)
+	go func() {
+		assert.Equal(t, s.isApplyError, c.Apply(s.arg) != nil)
+		close(ch)
+	}()
+	got, ok := <-ch
+	assert.Equal(t, ok, s.want != nil)
+	if ok && s.want != nil {
+		assert.Equal(t, s.want, got)
+	}
+}
+
+func TestMaybeConsumer(t *testing.T) {
+	for _, tc := range []*testcaseMaybeConsumer{
+		{
+			title: "not maybe",
+			arg:   1,
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v int) error {
+						ch <- v
+						return nil
+					}, func() error {
+						ch <- -1
+						return nil
+					}
+			},
+			isApplyError: true,
+		},
+		{
+			title: "nothing",
+			arg:   circle.NewNothing(),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v int) error {
+						ch <- v
+						return nil
+					}, func() error {
+						ch <- -1
+						return nil
+					}
+			},
+			want: -1,
+		},
+		{
+			title: "just",
+			arg:   circle.NewJust(100),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v int) error {
+						ch <- v
+						return nil
+					}, func() error {
+						ch <- -1
+						return nil
+					}
+			},
+			want: 100,
+		},
+		{
+			title: "just error",
+			arg:   circle.NewJust(100),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v int) error {
+						return errors.New("just")
+					}, func() error {
+						ch <- -1
+						return nil
+					}
+			},
+			isApplyError: true,
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
+type (
 	testcaseEitherMapper struct {
 		title        string
 		arg          interface{}

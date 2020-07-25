@@ -23,6 +23,9 @@ type (
 		Map(f Mapper) Maybe
 		// Filter applies f to the value of this if this is not nothing.
 		Filter(f Filter) Maybe
+		// Consume applies f to the value of this if this is not nothing,
+		// else calls g.
+		Consume(f, g Consumer) error
 	}
 
 	just struct {
@@ -59,7 +62,8 @@ func (s *just) Filter(f Filter) Maybe {
 	}
 	return nothingEntity
 }
-func (s *just) String() string { return fmt.Sprintf("Just(%v)", s.v) }
+func (s *just) Consume(f, _ Consumer) error { return f.Apply(s.v) }
+func (s *just) String() string              { return fmt.Sprintf("Just(%v)", s.v) }
 
 func (*nothing) IsNothing() bool                     { return true }
 func (*nothing) Get() (interface{}, bool)            { return nil, false }
@@ -67,6 +71,7 @@ func (*nothing) GetOrElse(v interface{}) interface{} { return v }
 func (*nothing) OrElse(v Maybe) Maybe                { return v }
 func (*nothing) Map(Mapper) Maybe                    { return nothingEntity }
 func (*nothing) Filter(Filter) Maybe                 { return nothingEntity }
+func (*nothing) Consume(_, g Consumer) error         { return g.Apply(nothingEntity) }
 func (*nothing) String() string                      { return "Nothing" }
 
 type (

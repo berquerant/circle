@@ -52,6 +52,10 @@ type (
 		// Consume consumes stream.
 		// If f returns error, stops consuming.
 		Consume(f interface{}, opt ...StreamOption) error
+		// MaybeConsume consumes stream with Maybe.
+		// If an element is Just, converts the value of it by f, func(A) error,
+		// else calls g.
+		MaybeConsume(f interface{}, g func() error, opt ...StreamOption) error
 		Executor
 	}
 
@@ -171,8 +175,8 @@ func (s *streamBuilder) Execute() (Iterator, error) {
 	}
 	return st.Execute()
 }
-func (s *streamBuilder) Consume(f interface{}, opt ...StreamOption) error {
-	x, err := NewConsumer(f)
+func (s *streamBuilder) consume(f func() (Consumer, error), opt ...StreamOption) error {
+	x, err := f()
 	if err != nil {
 		return fmt.Errorf("%w %v", ErrCannotCreateStream, err)
 	}
@@ -181,4 +185,10 @@ func (s *streamBuilder) Consume(f interface{}, opt ...StreamOption) error {
 		return err
 	}
 	return st.Consume(x, opt...)
+}
+func (s *streamBuilder) Consume(f interface{}, opt ...StreamOption) error {
+	return s.consume(func() (Consumer, error) { return NewConsumer(f) }, opt...)
+}
+func (s *streamBuilder) MaybeConsume(f interface{}, g func() error, opt ...StreamOption) error {
+	return s.consume(func() (Consumer, error) { return NewMaybeConsumer(f, g) }, opt...)
 }

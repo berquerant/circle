@@ -108,6 +108,95 @@ func TestMaybeFilter(t *testing.T) {
 }
 
 type (
+	testcaseMaybeConsume struct {
+		title   string
+		arg     circle.Maybe
+		fg      func(chan<- interface{}) (interface{}, func() error)
+		wantErr error
+		wantVal interface{}
+	}
+)
+
+func (s *testcaseMaybeConsume) test(t *testing.T) {
+	ch := make(chan interface{})
+	f, g := s.fg(ch)
+	cf, err := circle.NewConsumer(f)
+	assert.Nil(t, err)
+	cg, err := circle.NewConsumer(func(interface{}) error { return g() })
+	assert.Nil(t, err)
+	go func() {
+		assert.Equal(t, s.wantErr, s.arg.Consume(cf, cg))
+		close(ch)
+	}()
+	gotVal, ok := <-ch
+	assert.Equal(t, ok, s.wantVal != nil)
+	if ok && s.wantVal != nil {
+		assert.Equal(t, s.wantVal, gotVal)
+	}
+}
+
+func TestMaybeConsume(t *testing.T) {
+	for _, tc := range []*testcaseMaybeConsume{
+		{
+			title: "nothing error",
+			arg:   circle.NewNothing(),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v interface{}) error {
+						ch <- v
+						return nil
+					}, func() error {
+						return errors.New("nth")
+					}
+			},
+			wantErr: errors.New("nth"),
+		},
+		{
+			title: "nothing value",
+			arg:   circle.NewNothing(),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v interface{}) error {
+						ch <- v
+						return nil
+					}, func() error {
+						ch <- "got nothing"
+						return nil
+					}
+			},
+			wantVal: "got nothing",
+		},
+		{
+			title: "just error",
+			arg:   circle.NewJust("tea"),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v interface{}) error {
+						return errors.New("just")
+					}, func() error {
+						ch <- "nth"
+						return nil
+					}
+			},
+			wantErr: errors.New("just"),
+		},
+		{
+			title: "just value",
+			arg:   circle.NewJust("tea"),
+			fg: func(ch chan<- interface{}) (interface{}, func() error) {
+				return func(v string) error {
+						ch <- v
+						return nil
+					}, func() error {
+						ch <- "nth"
+						return nil
+					}
+			},
+			wantVal: "tea",
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
+type (
 	testcaseEitherMap struct {
 		title string
 		arg   circle.Either
