@@ -47,7 +47,7 @@ type (
 
 // NewEitherMapper returns a new Mapper for Either.
 //
-// If you want to convert Either[A] to B, f is a func(A) (B, error).
+// If you want to convert Either[_, A] to B, f is a func(A) (B, error).
 //
 // If f returns error or argument is left, returns left.
 func NewEitherMapper(f interface{}) (Mapper, error) {
@@ -227,4 +227,37 @@ func (s *maybeConsumer) Apply(x interface{}) error {
 		return ErrApply
 	}
 	return v.Consume(s.fj, s.fn)
+}
+
+type (
+	eitherConsumer struct {
+		fr Consumer
+		fl Consumer
+	}
+)
+
+// NewEitherConsumer returns a new Consumer for Either.
+// If you want to consume Either[A, B],
+// f is a func(A) error, g is a func(B) error.
+func NewEitherConsumer(f, g interface{}) (Consumer, error) {
+	fl, err := NewConsumer(f)
+	if err != nil {
+		return nil, err
+	}
+	fr, err := NewConsumer(g)
+	if err != nil {
+		return nil, err
+	}
+	return &eitherConsumer{
+		fl: fl,
+		fr: fr,
+	}, nil
+}
+
+func (s *eitherConsumer) Apply(x interface{}) error {
+	v, ok := x.(Either)
+	if !ok {
+		return ErrApply
+	}
+	return v.Consume(s.fl, s.fr)
 }

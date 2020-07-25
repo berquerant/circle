@@ -96,6 +96,9 @@ type (
 		// If this is right, returns Just,
 		// else returns Nothing.
 		ToMaybe() Maybe
+		// Consume applies g to this if this is right,
+		// else f.
+		Consume(f, g Consumer) error
 	}
 
 	left struct {
@@ -119,6 +122,7 @@ func (s *left) Right() (interface{}, bool)        { return nil, false }
 func (*left) GetOrElse(v interface{}) interface{} { return v }
 func (s *left) Map(f Mapper) Either               { return s }
 func (*left) ToMaybe() Maybe                      { return nothingEntity }
+func (s *left) Consume(f, _ Consumer) error       { return f.Apply(s.v) }
 func (s *left) String() string                    { return fmt.Sprintf("Left(%v)", s.v) }
 
 func (*right) IsLeft() bool                        { return false }
@@ -133,8 +137,9 @@ func (s *right) Map(f Mapper) Either {
 	}
 	return &right{v: v}
 }
-func (s *right) ToMaybe() Maybe { return &just{v: s.v} }
-func (s *right) String() string { return fmt.Sprintf("Right(%v)", s.v) }
+func (s *right) ToMaybe() Maybe              { return &just{v: s.v} }
+func (s *right) Consume(_, g Consumer) error { return g.Apply(s.v) }
+func (s *right) String() string              { return fmt.Sprintf("Right(%v)", s.v) }
 
 type (
 	// Tuple is an immutable array.

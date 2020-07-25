@@ -94,6 +94,21 @@ func TestStreamBuilderConsume(t *testing.T) {
 			},
 			want: []interface{}{1, "nothing", 10},
 		},
+		{
+			title: "either consume",
+			src:   []circle.Either{circle.NewLeft(1), circle.NewRight(2), circle.NewRight(3)},
+			consume: func(it circle.Iterator, ch chan<- interface{}) error {
+				return circle.NewStreamBuilder(it).
+					EitherConsume(func(x int) error {
+						ch <- x
+						return nil
+					}, func(x int) error {
+						ch <- x + 10
+						return nil
+					})
+			},
+			want: []interface{}{1, 12, 13},
+		},
 	} {
 		t.Run(tc.title, tc.test)
 	}

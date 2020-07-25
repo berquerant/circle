@@ -53,9 +53,13 @@ type (
 		// If f returns error, stops consuming.
 		Consume(f interface{}, opt ...StreamOption) error
 		// MaybeConsume consumes stream with Maybe.
-		// If an element is Just, converts the value of it by f, func(A) error,
+		// If an element is Just, consumes the value of it by f, func(A) error,
 		// else calls g.
 		MaybeConsume(f interface{}, g func() error, opt ...StreamOption) error
+		// EitherConsume consumes stream with Either.
+		// If an element is Right, consumers the value of it by g, func(A) error,
+		// else by f, func(B) error.
+		EitherConsume(f, g interface{}, opt ...StreamOption) error
 		Executor
 	}
 
@@ -191,4 +195,7 @@ func (s *streamBuilder) Consume(f interface{}, opt ...StreamOption) error {
 }
 func (s *streamBuilder) MaybeConsume(f interface{}, g func() error, opt ...StreamOption) error {
 	return s.consume(func() (Consumer, error) { return NewMaybeConsumer(f, g) }, opt...)
+}
+func (s *streamBuilder) EitherConsume(f, g interface{}, opt ...StreamOption) error {
+	return s.consume(func() (Consumer, error) { return NewEitherConsumer(f, g) }, opt...)
 }

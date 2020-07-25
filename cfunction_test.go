@@ -158,6 +158,94 @@ func TestMaybeConsumer(t *testing.T) {
 }
 
 type (
+	testcaseEitherConsumer struct {
+		title        string
+		arg          interface{}
+		fg           func(chan<- interface{}) (interface{}, interface{})
+		want         interface{}
+		isApplyError bool
+	}
+)
+
+func (s *testcaseEitherConsumer) test(t *testing.T) {
+	ch := make(chan interface{})
+	f, g := s.fg(ch)
+	c, err := circle.NewEitherConsumer(f, g)
+	assert.Nil(t, err)
+	go func() {
+		assert.Equal(t, s.isApplyError, c.Apply(s.arg) != nil)
+		close(ch)
+	}()
+	got, ok := <-ch
+	assert.Equal(t, ok, s.want != nil)
+	if ok && s.want != nil {
+		assert.Equal(t, s.want, got)
+	}
+}
+
+func TestEitherConsumer(t *testing.T) {
+	for _, tc := range []*testcaseEitherConsumer{
+		{
+			title: "not either",
+			arg:   1,
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x
+						return nil
+					}, func(x int) error {
+						ch <- x
+						return nil
+					}
+			},
+			isApplyError: true,
+		},
+		{
+			title: "left",
+			arg:   circle.NewLeft(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x
+						return nil
+					}, func(x int) error {
+						ch <- x + 1
+						return nil
+					}
+			},
+			want: 1,
+		},
+		{
+			title: "right",
+			arg:   circle.NewRight(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x + 1
+						return nil
+					}, func(x int) error {
+						ch <- x
+						return nil
+					}
+			},
+			want: 1,
+		},
+		{
+			title: "right error",
+			arg:   circle.NewRight(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x + 1
+						return nil
+					}, func(x int) error {
+						return errors.New("err")
+					}
+			},
+			isApplyError: true,
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
+type (
 	testcaseEitherMapper struct {
 		title        string
 		arg          interface{}

@@ -197,6 +197,95 @@ func TestMaybeConsume(t *testing.T) {
 }
 
 type (
+	testcaseEitherConsume struct {
+		title   string
+		arg     circle.Either
+		fg      func(chan<- interface{}) (interface{}, interface{})
+		wantVal interface{}
+		wantErr error
+	}
+)
+
+func (s *testcaseEitherConsume) test(t *testing.T) {
+	ch := make(chan interface{})
+	f, g := s.fg(ch)
+	cf, err := circle.NewConsumer(f)
+	assert.Nil(t, err)
+	cg, err := circle.NewConsumer(g)
+	assert.Nil(t, err)
+	go func() {
+		assert.Equal(t, s.wantErr, s.arg.Consume(cf, cg))
+		close(ch)
+	}()
+	gotVal, ok := <-ch
+	assert.Equal(t, ok, s.wantVal != nil)
+	if ok && s.wantVal != nil {
+		assert.Equal(t, s.wantVal, gotVal)
+	}
+}
+
+func TestEitherConsume(t *testing.T) {
+	for _, tc := range []*testcaseEitherConsume{
+		{
+			title: "right error",
+			arg:   circle.NewRight(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x
+						return nil
+					}, func(x int) error {
+						return errors.New("err")
+					}
+			},
+			wantErr: errors.New("err"),
+		},
+		{
+			title: "right value",
+			arg:   circle.NewRight(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x + 1
+						return nil
+					}, func(x int) error {
+						ch <- x
+						return nil
+					}
+			},
+			wantVal: 1,
+		},
+		{
+			title: "left error",
+			arg:   circle.NewLeft(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						return errors.New("err")
+					}, func(x int) error {
+						ch <- x
+						return nil
+					}
+			},
+			wantErr: errors.New("err"),
+		},
+		{
+			title: "left value",
+			arg:   circle.NewLeft(1),
+			fg: func(ch chan<- interface{}) (interface{}, interface{}) {
+				return func(x int) error {
+						ch <- x
+						return nil
+					}, func(x int) error {
+						ch <- x + 1
+						return nil
+					}
+			},
+			wantVal: 1,
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
+type (
 	testcaseEitherMap struct {
 		title string
 		arg   circle.Either
