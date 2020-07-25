@@ -49,6 +49,9 @@ type (
 		// Flat flattens stream.
 		// See NewFlatExecutor().
 		Flat(opt ...StreamOption) StreamBuilder
+		// Consume consumes stream.
+		// If f returns error, stops consuming.
+		Consume(f interface{}, opt ...StreamOption) error
 		Executor
 	}
 
@@ -150,7 +153,7 @@ func (s *streamBuilder) TupleFilter(f interface{}, opt ...StreamOption) StreamBu
 		return a.Filter(x, opt...), nil
 	})
 }
-func (s *streamBuilder) Execute() (Iterator, error) {
+func (s *streamBuilder) connect() (Stream, error) {
 	var st Stream = s.stream
 	for _, f := range s.nodes {
 		n, err := f(st)
@@ -159,5 +162,23 @@ func (s *streamBuilder) Execute() (Iterator, error) {
 		}
 		st = n
 	}
+	return st, nil
+}
+func (s *streamBuilder) Execute() (Iterator, error) {
+	st, err := s.connect()
+	if err != nil {
+		return nil, err
+	}
 	return st.Execute()
+}
+func (s *streamBuilder) Consume(f interface{}, opt ...StreamOption) error {
+	x, err := NewConsumer(f)
+	if err != nil {
+		return fmt.Errorf("%w %v", ErrCannotCreateStream, err)
+	}
+	st, err := s.connect()
+	if err != nil {
+		return err
+	}
+	return st.Consume(x, opt...)
 }

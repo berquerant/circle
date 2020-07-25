@@ -26,6 +26,9 @@ type (
 		// Flat flattens Stream.
 		// See NewFlatExecutor().
 		Flat(opt ...StreamOption) Stream
+		// Consume consumes Stream.
+		// If f returns error, stops consuming.
+		Consume(f Consumer, opt ...StreamOption) error
 		Executor
 	}
 
@@ -49,7 +52,9 @@ func NewStream(it Iterator) Stream {
 	}
 }
 
-func (s *stream) Execute() (Iterator, error) {
+func (s *stream) Execute() (Iterator, error) { return s.connect() }
+
+func (s *stream) connect() (Iterator, error) {
 	var it Iterator = s.it
 	for _, f := range s.nodes {
 		n := f(it)
@@ -106,6 +111,14 @@ func (s *stream) Flat(opt ...StreamOption) Stream {
 	return s.add(func(it Iterator) StreamNode {
 		return NewStreamNode(NewFlatExecutor(it), c.NodeID)
 	})
+}
+
+func (s *stream) Consume(f Consumer, opt ...StreamOption) error {
+	it, err := s.connect()
+	if err != nil {
+		return err
+	}
+	return NewConsumeExecutor(f, it).ConsumeExecute()
 }
 
 type (

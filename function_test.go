@@ -256,3 +256,50 @@ func testComparatorApply(t *testing.T) {
 		}
 	})
 }
+
+func TestConsumer(t *testing.T) {
+	for name, tc := range map[string]func(*testing.T){
+		"invalid": testInvalidConsumer,
+		"apply":   testConsumerApply,
+	} {
+		t.Run(name, tc)
+	}
+}
+
+func testInvalidConsumer(t *testing.T) {
+	_, err := circle.NewConsumer(func() {})
+	assert.Equal(t, circle.ErrInvalidConsumer, err)
+}
+
+func testConsumerApply(t *testing.T) {
+	t.Run("invalid argument", func(t *testing.T) {
+		f, err := circle.NewConsumer(func(int) error {
+			return nil
+		})
+		assert.Nil(t, err)
+		assert.NotNil(t, f.Apply("1"))
+	})
+
+	t.Run("do", func(t *testing.T) {
+		type T struct {
+			s string
+		}
+		var ret string
+		f, err := circle.NewConsumer(func(x T) error {
+			if x.s == "bug" {
+				return errors.New("bug found")
+			}
+			ret = x.s
+			return nil
+		})
+		assert.Nil(t, err)
+		{
+			assert.Equal(t, errors.New("bug found"), f.Apply(T{"bug"}))
+		}
+		{
+			ret = ""
+			assert.Nil(t, f.Apply(T{"green"}))
+			assert.Equal(t, "green", ret)
+		}
+	})
+}

@@ -34,6 +34,31 @@ func mustNewComparator(t *testing.T, f interface{}) circle.Comparator {
 	return x
 }
 
+func mustNewConsumer(t *testing.T, f interface{}) circle.Consumer {
+	x, err := circle.NewConsumer(f)
+	assert.Nil(t, err, "must new consumer")
+	return x
+}
+
+func TestStreamConsume(t *testing.T) {
+	it, err := circle.NewIterator([]int{1, 2, 3})
+	assert.Nil(t, err)
+	ch := make(chan interface{})
+	st := circle.NewStream(it)
+	go func() {
+		assert.Nil(t, st.Consume(mustNewConsumer(t, func(x int) error {
+			ch <- x
+			return nil
+		})))
+		close(ch)
+	}()
+	got := []interface{}{}
+	for x := range ch {
+		got = append(got, x)
+	}
+	assert.Equal(t, "", cmp.Diff([]interface{}{1, 2, 3}, got))
+}
+
 type (
 	testcaseStream struct {
 		title   string

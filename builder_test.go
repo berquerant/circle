@@ -11,6 +11,79 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func ExampleStreamBuilder_Consume() {
+	it, _ := circle.NewIterator([]int{1, 2, 3, 4})
+	_ = circle.NewStreamBuilder(it).
+		Aggregate(func(x, y int) (int, error) {
+			return x + y, nil
+		}, 0).
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	// Output:
+	// 10
+}
+
+type (
+	testcaseStreamBuilderConsume struct {
+		title   string
+		src     interface{}
+		consume func(circle.Iterator, chan<- interface{}) error
+		isError bool
+		want    []interface{}
+	}
+)
+
+func (s *testcaseStreamBuilderConsume) test(t *testing.T) {
+	it, err := circle.NewIterator(s.src)
+	assert.Nil(t, err)
+	ch := make(chan interface{})
+	go func() {
+		assert.Equal(t, s.isError, s.consume(it, ch) != nil)
+		close(ch)
+	}()
+	got := []interface{}{}
+	for v := range ch {
+		got = append(got, v)
+	}
+	assert.Equal(t, "", cmp.Diff(s.want, got))
+}
+
+func TestStreamBuilderConsume(t *testing.T) {
+	for _, tc := range []*testcaseStreamBuilderConsume{
+		{
+			title: "invalid consumer",
+			src:   []int{1, 2, 3},
+			consume: func(it circle.Iterator, ch chan<- interface{}) error {
+				return circle.NewStreamBuilder(it).
+					Consume(func() {
+						ch <- 1
+					})
+			},
+			isError: true,
+			want:    []interface{}{},
+		},
+		{
+			title: "map consume",
+			src:   []int{1, 2, 3},
+			consume: func(it circle.Iterator, ch chan<- interface{}) error {
+				return circle.NewStreamBuilder(it).
+					Map(func(x int) (int, error) {
+						return x + 1, nil
+					}).
+					Consume(func(x int) error {
+						ch <- x
+						return nil
+					})
+			},
+			want: []interface{}{2, 3, 4},
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
 type (
 	testcaseStreamBuilder struct {
 		title   string

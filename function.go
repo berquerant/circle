@@ -276,3 +276,55 @@ func (s *comparator) Apply(x, y interface{}) (ret bool, rerr error) {
 	}
 	return r0, nil
 }
+
+var (
+	ErrInvalidConsumer = errors.New("invalid consumer")
+)
+
+type (
+	// Consumer is a func(A) error.
+	Consumer interface {
+		Apply(x interface{}) error
+	}
+	consumer struct {
+		f interface{}
+	}
+)
+
+func isConsumer(f interface{}) bool {
+	t := reflect.TypeOf(f)
+	return t.Kind() == reflect.Func &&
+		t.NumIn() == 1 && t.NumOut() == 1 &&
+		t.Out(0).String() == "error"
+}
+
+// NewConsumer returns a new Consumer.
+func NewConsumer(f interface{}) (Consumer, error) {
+	if !isConsumer(f) {
+		return nil, ErrInvalidConsumer
+	}
+	return &consumer{
+		f: f,
+	}, nil
+}
+
+func (s *consumer) Apply(x interface{}) (rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
+	t := reflect.TypeOf(s.f)
+	vx, err := reflection.Convert(x, t.In(0), true)
+	if err != nil {
+		return err
+	}
+	var (
+		r  = reflect.ValueOf(s.f).Call([]reflect.Value{vx})
+		r0 = r[0].Interface()
+	)
+	if err, ok := r0.(error); ok {
+		return err
+	}
+	return nil
+}
