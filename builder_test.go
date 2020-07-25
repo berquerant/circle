@@ -11,18 +11,240 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func ExampleStreamBuilder_Consume() {
-	it, _ := circle.NewIterator([]int{1, 2, 3, 4})
+func ExampleStreamBuilder_map() {
+	it, _ := circle.NewIterator([]int{1, 2, 3, -1, 4})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) {
+			if x < 0 {
+				return 0, errors.New("negative")
+			}
+			return x + 10, nil
+		}).
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 11
+	// 12
+	// 13
+	// 14
+	// <nil>
+}
+
+func ExampleStreamBuilder_maybeMap() {
+	it, _ := circle.NewIterator([]circle.Maybe{
+		circle.NewJust(1),
+		circle.NewNothing(),
+		circle.NewJust(3),
+		circle.NewJust(-1),
+	})
+	err := circle.NewStreamBuilder(it).
+		MaybeMap(func(x int) (int, error) {
+			if x < 0 {
+				return 0, errors.New("negative")
+			}
+			return x + 10, nil
+		}).
+		MaybeConsume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		}, func() error {
+			fmt.Println("nothing")
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 11
+	// nothing
+	// 13
+	// nothing
+	// <nil>
+}
+
+func ExampleStreamBuilder_eitherMap() {
+	it, _ := circle.NewIterator([]circle.Either{
+		circle.NewRight(1),
+		circle.NewLeft(errors.New("e1")),
+		circle.NewRight(3),
+		circle.NewRight(-1),
+	})
+	err := circle.NewStreamBuilder(it).
+		EitherMap(func(x int) (int, error) {
+			if x < 0 {
+				return 0, fmt.Errorf("negative: %d", x)
+			}
+			return x + 10, nil
+		}).
+		EitherConsume(func(err error) error {
+			fmt.Println(err)
+			return nil
+		}, func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 11
+	// e1
+	// 13
+	// negative: -1
+	// <nil>
+}
+
+func ExampleStreamBuilder_tupleMap() {
+	it, _ := circle.NewIterator([]int{1, 2, 3, 4, -1})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (circle.Tuple, error) {
+			return circle.NewTuple(x, x*x), nil
+		}).
+		TupleFilter(func(x, xx int) (bool, error) {
+			return x > 0, nil
+		}).
+		TupleMap(func(x, xx int) (circle.Tuple, error) {
+			return circle.NewTuple(x, xx, x*xx), nil
+		}).
+		TupleConsume(func(x, xx, xxx int) error {
+			fmt.Printf("%d %d %d\n", x, xx, xxx)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 1 1 1
+	// 2 4 8
+	// 3 9 27
+	// 4 16 64
+	// <nil>
+}
+
+func ExampleStreamBuilder_filter() {
+	it, _ := circle.NewIterator([]int{1, 2, 3, -1, 4, 5, 6})
+	err := circle.NewStreamBuilder(it).
+		Filter(func(x int) (bool, error) {
+			if x < 0 {
+				return false, fmt.Errorf("negative: %d", x)
+			}
+			return x&1 == 1, nil
+		}, circle.WithNodeID("f1")).
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 1
+	// 3
+	// f1 negative: -1
+}
+
+func ExampleStreamBuilder_aggregate() {
+	src := func() circle.Iterator {
+		it, _ := circle.NewIterator([]int{1, 2, 3})
+		return it
+	}
+	_ = circle.NewStreamBuilder(src()).
+		Aggregate(func(acc string, x int) (string, error) {
+			return fmt.Sprintf("(%s+%d)", acc, x), nil
+		}, "iv").
+		Consume(func(x string) error {
+			fmt.Printf("left: %s\n", x)
+			return nil
+		})
+	_ = circle.NewStreamBuilder(src()).
+		Aggregate(func(x int, acc string) (string, error) {
+			return fmt.Sprintf("(%d+%s)", x, acc), nil
+		}, "iv").
+		Consume(func(x string) error {
+			fmt.Printf("right: %s\n", x)
+			return nil
+		})
+	// Output:
+	// left: (((iv+1)+2)+3)
+	// right: (1+(2+(3+iv)))
+}
+
+func ExampleStreamBuilder_sort() {
+	it, _ := circle.NewIterator([]int{4, 1, 3, 2})
+	err := circle.NewStreamBuilder(it).
+		Sort(func(x, y int) (bool, error) {
+			return x < y, nil
+		}).
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 1
+	// 2
+	// 3
+	// 4
+	// <nil>
+}
+
+func ExampleStreamBuilder_flat() {
+	it, _ := circle.NewIterator([][]int{[]int{1}, []int{2, 3}})
 	_ = circle.NewStreamBuilder(it).
-		Aggregate(func(x, y int) (int, error) {
-			return x + y, nil
-		}, 0).
+		Flat().
 		Consume(func(x int) error {
 			fmt.Println(x)
 			return nil
 		})
 	// Output:
-	// 10
+	// 1
+	// 2
+	// 3
+}
+
+func ExampleStreamBuilder_flatMap() {
+	var isEOI bool
+	it, _ := circle.NewIterator(func() (interface{}, error) {
+		if isEOI {
+			return nil, circle.ErrEOI
+		}
+		isEOI = true
+		return map[string]int{
+			"a": 1,
+			"b": 2,
+			"c": 3,
+		}, nil
+	})
+	_ = circle.NewStreamBuilder(it).
+		Flat().
+		TupleMap(func(k string, v int) (string, error) {
+			return fmt.Sprintf("%s-%d", k, v), nil
+		}).
+		Sort(func(x, y string) (bool, error) {
+			return x < y, nil
+		}).
+		Consume(func(x string) error {
+			fmt.Println(x)
+			return nil
+		})
+	// Output:
+	// a-1
+	// b-2
+	// c-3
+}
+
+func ExampleStreamBuilder_consume() {
+	it, _ := circle.NewIterator([]int{1, 2, 3, 4, -1, 5, 6, 7})
+	err := circle.NewStreamBuilder(it).
+		Consume(func(x int) error {
+			if x < 0 {
+				return fmt.Errorf("negative: %d", x)
+			}
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 1
+	// 2
+	// 3
+	// 4
+	// negative: -1
 }
 
 type (
