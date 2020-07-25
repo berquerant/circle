@@ -60,6 +60,10 @@ type (
 		// If an element is Right, consumers the value of it by g, func(A) error,
 		// else by f, func(B) error.
 		EitherConsume(f, g interface{}, opt ...StreamOption) error
+		// TupleConsume consumes stream with Tuple.
+		// If an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An
+		// or f returns error, stops consuming.
+		TupleConsume(f interface{}, opt ...StreamOption) error
 		Executor
 	}
 
@@ -198,4 +202,7 @@ func (s *streamBuilder) MaybeConsume(f interface{}, g func() error, opt ...Strea
 }
 func (s *streamBuilder) EitherConsume(f, g interface{}, opt ...StreamOption) error {
 	return s.consume(func() (Consumer, error) { return NewEitherConsumer(f, g) }, opt...)
+}
+func (s *streamBuilder) TupleConsume(f interface{}, opt ...StreamOption) error {
+	return s.consume(func() (Consumer, error) { return NewTupleConsumer(f) }, opt...)
 }

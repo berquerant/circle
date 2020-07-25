@@ -387,6 +387,116 @@ func TestTupleMapper(t *testing.T) {
 }
 
 type (
+	testcaseTupleConsumer struct {
+		title        string
+		arg          interface{}
+		f            func(chan<- interface{}) interface{}
+		want         interface{}
+		isApplyError bool
+	}
+)
+
+func (s *testcaseTupleConsumer) test(t *testing.T) {
+	ch := make(chan interface{})
+	f := s.f(ch)
+	c, err := circle.NewTupleConsumer(f)
+	assert.Nil(t, err)
+	go func() {
+		assert.Equal(t, s.isApplyError, c.Apply(s.arg) != nil)
+		close(ch)
+	}()
+	got, ok := <-ch
+	assert.Equal(t, ok, s.want != nil)
+	if ok && s.want != nil {
+		assert.Equal(t, s.want, got)
+	}
+}
+
+func TestTupleConsumer(t *testing.T) {
+	for _, tc := range []*testcaseTupleConsumer{
+		{
+			title: "not tuple",
+			arg:   1,
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x int, y string) error {
+					ch <- fmt.Sprintf("%s[%d]", y, x)
+					return nil
+				}
+			},
+			isApplyError: true,
+		},
+		{
+			title: "invalid argument",
+			arg:   circle.NewTuple(1, 2),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x int, y string) error {
+					ch <- fmt.Sprintf("%s[%d]", y, x)
+					return nil
+				}
+			},
+			isApplyError: true,
+		},
+		{
+			title: "tuple size error",
+			arg:   circle.NewTuple(1, "2", 3),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x int, y string) error {
+					ch <- fmt.Sprintf("%s[%d]", y, x)
+					return nil
+				}
+			},
+			isApplyError: true,
+		},
+		{
+			title: "empty tuple",
+			arg:   circle.NewTuple(),
+			f: func(ch chan<- interface{}) interface{} {
+				return func() error {
+					ch <- 10
+					return nil
+				}
+			},
+			want: 10,
+		},
+		{
+			title: "unit",
+			arg:   circle.NewTuple(1),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x int) error {
+					ch <- x
+					return nil
+				}
+			},
+			want: 1,
+		},
+		{
+			title: "double",
+			arg:   circle.NewTuple(1, "xs"),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x int, y string) error {
+					ch <- fmt.Sprintf("%s[%d]", y, x)
+					return nil
+				}
+			},
+			want: "xs[1]",
+		},
+		{
+			title: "tuple tuple",
+			arg:   circle.NewTuple(circle.NewTuple("first"), circle.NewTuple("second", 21)),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x, y circle.Tuple) error {
+					ch <- fmt.Sprintf("%v,%v", x, y)
+					return nil
+				}
+			},
+			want: "Tuple(first),Tuple(second,21)",
+		},
+	} {
+		t.Run(tc.title, tc.test)
+	}
+}
+
+type (
 	testcaseTupleFilter struct {
 		title        string
 		arg          interface{}

@@ -197,6 +197,68 @@ func (s *tupleFilter) Apply(v interface{}) (ret bool, rerr error) {
 }
 
 type (
+	tupleConsumer struct {
+		f interface{}
+	}
+)
+
+// NewTupleConsumer returns a new Consumer for Tuple.
+//
+// If you want to consume Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) error.
+//
+// If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
+func NewTupleConsumer(f interface{}) (Consumer, error) {
+	if !isTupleConsumer(f) {
+		return nil, ErrInvalidConsumer
+	}
+	return &tupleConsumer{
+		f: f,
+	}, nil
+}
+
+func isTupleConsumer(f interface{}) bool {
+	t := reflect.TypeOf(f)
+	return t.Kind() == reflect.Func &&
+		t.NumOut() == 1 && t.Out(0).String() == "error"
+}
+
+func (s *tupleConsumer) Apply(v interface{}) (rerr error) {
+	defer func() {
+		if err := recover(); err != nil {
+			rerr = fmt.Errorf("%w %s", ErrApply, err)
+		}
+	}()
+	x, ok := v.(Tuple)
+	if !ok {
+		return ErrApply
+	}
+	t := reflect.TypeOf(s.f)
+	if x.Size() != t.NumIn() {
+		return ErrApply
+	}
+	a := make([]reflect.Value, x.Size())
+	for i := 0; i < x.Size(); i++ {
+		p, ok := x.Get(i)
+		if !ok {
+			return ErrApply
+		}
+		v, err := reflection.Convert(p, t.In(i), true)
+		if err != nil {
+			return err
+		}
+		a[i] = v
+	}
+	var (
+		r  = reflect.ValueOf(s.f).Call(a)
+		r0 = r[0].Interface()
+	)
+	if err, ok := r0.(error); ok {
+		return err
+	}
+	return nil
+}
+
+type (
 	maybeConsumer struct {
 		fj Consumer
 		fn Consumer

@@ -109,6 +109,18 @@ func TestStreamBuilderConsume(t *testing.T) {
 			},
 			want: []interface{}{1, 12, 13},
 		},
+		{
+			title: "tuple consume",
+			src:   []circle.Tuple{circle.NewTuple(1, "one"), circle.NewTuple(2, "two"), circle.NewTuple(3, "three")},
+			consume: func(it circle.Iterator, ch chan<- interface{}) error {
+				return circle.NewStreamBuilder(it).
+					TupleConsume(func(x int, y string) error {
+						ch <- fmt.Sprintf("%d - %s", x, y)
+						return nil
+					})
+			},
+			want: []interface{}{"1 - one", "2 - two", "3 - three"},
+		},
 	} {
 		t.Run(tc.title, tc.test)
 	}
