@@ -10,7 +10,7 @@ type (
 	StreamBuilder interface {
 		// Map maps stream.
 		// Convert each element by f, func(A) (B, error).
-		// if f returns error, the element is filtered from this stream.
+		// If f returns error, the element is filtered from this stream.
 		Map(f interface{}, opt ...StreamOption) StreamBuilder
 		// MaybeMap maps stream with Maybe.
 		// If an element is Just (has value), converts the value of it by f, func(A) (B, error),
@@ -44,7 +44,8 @@ type (
 		Aggregate(f, iv interface{}, opt ...StreamOption) StreamBuilder
 		// Sort sorts stream.
 		// Sort elements by f, func(A, A) (bool, error).
-		// If f returns error, the element is regarded as bigger.
+		//
+		// Note: ignore error from f currently.
 		Sort(f interface{}, opt ...StreamOption) StreamBuilder
 		// Flat flattens stream.
 		// See NewFlatExecutor().

@@ -254,9 +254,8 @@ func (s *compareExecutor) Execute() (Iterator, error) {
 		xs = append(xs, x)
 	}
 	sort.SliceStable(xs, func(i, j int) bool {
-		v, err := s.f.Apply(xs[i], xs[j])
-		// append element caused some error to tail
-		return v && err == nil
+		v, _ := s.f.Apply(xs[i], xs[j]) // Note: ignore error. maybe error is unnecessary
+		return v
 	})
 	return NewIterator(xs)
 }
