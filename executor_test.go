@@ -3,6 +3,7 @@ package circle_test
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -337,7 +338,16 @@ func ExampleNewFlatExecutor_map() {
 		}, nil
 	})
 	exit, _ := circle.NewFlatExecutor(it).Execute()
+	got := []circle.Tuple{}
 	for v := range exit.Channel().C() {
+		got = append(got, v.(circle.Tuple))
+	}
+	sort.SliceStable(got, func(i, j int) bool {
+		x, _ := got[i].Get(0)
+		y, _ := got[j].Get(0)
+		return x.(string) < y.(string)
+	})
+	for _, v := range got {
 		fmt.Println(v)
 	}
 	// Output:
