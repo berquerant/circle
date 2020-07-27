@@ -1,6 +1,10 @@
-## circle [![GoDoc](https://godoc.org/github.com/berquerant/circle?status.svg)](https://godoc.org/github.com/berquerant/circle)
+## circle
 
 circle provides sequences which support aggregation operations.
+
+[![GoDoc](https://godoc.org/github.com/berquerant/circle?status.svg)](https://godoc.org/github.com/berquerant/circle)
+[![CircleCI](https://circleci.com/gh/berquerant/circle.svg?style=svg)](https://circleci.com/gh/berquerant/circle)
+[![Codecov](https://codecov.io/gh/berquerant/circle/branch/master/graph/badge.svg)](https://codecov.io/gh/berquerant/circle)
 
 ### Example
 
