@@ -63,3 +63,9 @@ func main() {
 	}
 }
 ```
+
+### Test
+
+``` shell
+make test
+```
