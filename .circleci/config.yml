@@ -1,4 +1,8 @@
 version: 2
+
+orbs:
+  codecov: codecov/codecov@1.1.1
+
 jobs:
   build:
     working_directory: /go/src/github.com/berquerant/circle
@@ -11,4 +15,6 @@ jobs:
           command: go env
       - run:
           name: test
-          command: go test -v -race -cover
+          command: go test -v -race -cover -coverprofile=coverage.out
+      - codecov/upload:
+          file: ./coverage.out
