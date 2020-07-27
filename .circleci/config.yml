@@ -7,5 +7,8 @@ jobs:
     steps:
       - checkout
       - run:
+          name: env
+          command: go env
+      - run:
           name: test
           command: go test -v -race -cover
