@@ -247,6 +247,95 @@ func ExampleStreamBuilder_consume() {
 	// negative: -1
 }
 
+func ExampleStreamBuilder_failedToCreateStream1() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) { return x + 1, nil }).    // index 0, valid mapper
+		Filter(func(x int) (int, error) { return x * 2, nil }). // index 1, invalid filter!
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// [1] cannot create stream invalid filter
+}
+
+func ExampleStreamBuilder_failedToCreateStream2() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) { return x + 1, nil }).
+		Filter(func(x int) (bool, error) { return x&1 == 1, nil }).
+		Consume(func(x int) { // invalid consumer!
+			fmt.Println(x)
+		})
+	fmt.Println(err)
+	// Output:
+	// cannot create stream invalid consumer
+}
+
+func ExampleStreamBuilder_failedToYield1() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) { return x, nil }). // index 0
+		Filter(func(x int) (bool, error) {               // index 1 returns an error
+			if x > 2 {
+				return false, fmt.Errorf("ERROR %d", x)
+			}
+			return x&1 == 0, nil
+		}).
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 2
+	// 1 ERROR 3
+}
+
+func ExampleStreamBuilder_failedToYield2() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) { return x + 1, nil }). // index 0
+		Filter(func(x int) (bool, error) {                   // index 1 returns an error
+			if x > 2 {
+				return false, fmt.Errorf("ERROR %d", x)
+			}
+			return x&1 == 0, nil
+		}).
+		Map(func(x int) (int, error) { return x * 2, nil }). // index 2 itself returns no error
+		Consume(func(x int) error {                          // but receives an error from index 1
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 4
+	// 2 1 ERROR 3
+}
+
+func ExampleStreamBuilder_failedToYield3() {
+	it, _ := circle.NewIterator([]int{1, 2, 3})
+	err := circle.NewStreamBuilder(it).
+		Map(func(x int) (int, error) { return x + 1, nil }). // index 0
+		Filter(func(x int) (bool, error) {                   // index 1 returns an error
+			if x > 2 {
+				return false, fmt.Errorf("ERROR %d", x)
+			}
+			return x&1 == 0, nil
+		}, circle.WithNodeID("NID")).                        // override index by node id
+		Map(func(x int) (int, error) { return x * 2, nil }). // index 2
+		Consume(func(x int) error {
+			fmt.Println(x)
+			return nil
+		})
+	fmt.Println(err)
+	// Output:
+	// 4
+	// 2 NID ERROR 3
+}
+
 type (
 	testcaseStreamBuilderConsume struct {
 		title   string
@@ -350,11 +439,12 @@ func TestStreamBuilderConsume(t *testing.T) {
 
 type (
 	testcaseStreamBuilder struct {
-		title   string
-		src     interface{}
-		builder func(circle.Iterator) circle.StreamBuilder
-		isError bool
-		want    []interface{}
+		title        string
+		src          interface{}
+		builder      func(circle.Iterator) circle.StreamBuilder
+		wantNewErr   error
+		wantYieldErr error
+		wantVal      []interface{}
 	}
 )
 
@@ -362,8 +452,8 @@ func (s *testcaseStreamBuilder) test(t *testing.T) {
 	it, err := circle.NewIterator(s.src)
 	assert.Nil(t, err)
 	x, err := s.builder(it).Execute()
-	assert.Equal(t, s.isError, err != nil)
-	if s.isError {
+	assert.Equal(t, fmt.Sprint(s.wantNewErr), fmt.Sprint(err))
+	if err != nil {
 		return
 	}
 	got := []interface{}{}
@@ -371,8 +461,8 @@ func (s *testcaseStreamBuilder) test(t *testing.T) {
 	for v := range c.C() {
 		got = append(got, v)
 	}
-	assert.Equal(t, "", cmp.Diff(s.want, got))
-	assert.Nil(t, c.Err())
+	assert.Equal(t, fmt.Sprint(s.wantYieldErr), fmt.Sprint(c.Err()))
+	assert.Equal(t, "", cmp.Diff(s.wantVal, got))
 }
 
 func TestStreamBuilder(t *testing.T) {
@@ -381,7 +471,7 @@ func TestStreamBuilder(t *testing.T) {
 			title:   "just iterator",
 			src:     []int{1, 2, 3},
 			builder: circle.NewStreamBuilder,
-			want:    []interface{}{1, 2, 3},
+			wantVal: []interface{}{1, 2, 3},
 		},
 		{
 			title: "invalid map",
@@ -390,7 +480,84 @@ func TestStreamBuilder(t *testing.T) {
 				return circle.NewStreamBuilder(it).
 					Map(func() {})
 			},
-			isError: true,
+			wantNewErr: errors.New("[0] cannot create stream invalid mapper"),
+		},
+		{
+			title: "invalid second filter",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Map(func(int) (int, error) { return 0, nil }).
+					Filter(func() {}).
+					Map(func(int) (int, error) { return 0, nil })
+			},
+			wantNewErr: errors.New("[1] cannot create stream invalid filter"),
+		},
+		{
+			title: "default first yield error",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Filter(func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					})
+			},
+			wantYieldErr: errors.New("0 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "specified first yield error",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Filter(func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}, circle.WithNodeID("NID"))
+			},
+			wantYieldErr: errors.New("NID ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "default second yield error",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Map(func(int) (int, error) { return 1, nil }).
+					Filter(func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}).
+					Map(func(int) (int, error) { return 1, nil })
+			},
+			wantYieldErr: errors.New("2 1 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "specified second yield error",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Map(func(int) (int, error) { return 1, nil }, circle.WithNodeID("NID1")).
+					Filter(func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}, circle.WithNodeID("NID2")).
+					Map(func(int) (int, error) { return 1, nil }, circle.WithNodeID("NID3"))
+			},
+			wantYieldErr: errors.New("NID3 NID2 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "default and specified second yield error",
+			src:   []int{1, 2, 3},
+			builder: func(it circle.Iterator) circle.StreamBuilder {
+				return circle.NewStreamBuilder(it).
+					Map(func(int) (int, error) { return 1, nil }, circle.WithNodeID("NID1")).
+					Filter(func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}, circle.WithNodeID("NID2")).
+					Map(func(int) (int, error) { return 1, nil })
+			},
+			wantYieldErr: errors.New("2 NID2 ERROR"),
+			wantVal:      []interface{}{},
 		},
 		{
 			title: "just map",
@@ -401,7 +568,7 @@ func TestStreamBuilder(t *testing.T) {
 						return x + 1, nil
 					})
 			},
-			want: []interface{}{2, 3, 4},
+			wantVal: []interface{}{2, 3, 4},
 		},
 		{
 			title: "maybe map filter",
@@ -422,7 +589,7 @@ func TestStreamBuilder(t *testing.T) {
 						return v, nil
 					})
 			},
-			want: []interface{}{11, 13},
+			wantVal: []interface{}{11, 13},
 		},
 		{
 			title: "tuple filter tuple map",
@@ -439,7 +606,7 @@ func TestStreamBuilder(t *testing.T) {
 						return y - x + z, nil
 					})
 			},
-			want: []interface{}{7, 23},
+			wantVal: []interface{}{7, 23},
 		},
 		{
 			title: "either map",
@@ -467,7 +634,7 @@ func TestStreamBuilder(t *testing.T) {
 						return "", errors.New("unreachable")
 					})
 			},
-			want: []interface{}{"right(2)", "left(left)", "right(3)", "left(negative)"},
+			wantVal: []interface{}{"right(2)", "left(left)", "right(3)", "left(negative)"},
 		},
 		{
 			title: "flat sort aggregate",
@@ -482,7 +649,7 @@ func TestStreamBuilder(t *testing.T) {
 						return fmt.Sprintf("(%s+%d)", x, y), nil
 					}, "iv")
 			},
-			want: []interface{}{"(((((iv+1)+2)+3)+4)+5)"},
+			wantVal: []interface{}{"(((((iv+1)+2)+3)+4)+5)"},
 		},
 	} {
 		t.Run(tc.title, tc.test)

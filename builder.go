@@ -7,6 +7,8 @@ import "fmt"
 
 type (
 	// StreamBuilder provides a convenient interface for streaming.
+	// Methods that fixes the stream such as Execute(), XXXConsume()
+	// return an error on failed to build the stream or yield.
 	StreamBuilder interface {
 		// Map maps stream.
 		// Convert each element by f, func(A) (B, error).
@@ -168,10 +170,10 @@ func (s *streamBuilder) TupleFilter(f interface{}, opt ...StreamOption) StreamBu
 }
 func (s *streamBuilder) connect() (Stream, error) {
 	var st Stream = s.stream
-	for _, f := range s.nodes {
+	for i, f := range s.nodes {
 		n, err := f(st)
 		if err != nil {
-			return nil, fmt.Errorf("%w %v", ErrCannotCreateStream, err)
+			return nil, fmt.Errorf("[%d] %w %v", i, ErrCannotCreateStream, err)
 		}
 		st = n
 	}
