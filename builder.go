@@ -168,10 +168,10 @@ func (s *streamBuilder) TupleFilter(f interface{}, opt ...StreamOption) StreamBu
 }
 func (s *streamBuilder) connect() (Stream, error) {
 	var st Stream = s.stream
-	for _, f := range s.nodes {
+	for i, f := range s.nodes {
 		n, err := f(st)
 		if err != nil {
-			return nil, fmt.Errorf("%w %v", ErrCannotCreateStream, err)
+			return nil, fmt.Errorf("[%d] %w %v", i, ErrCannotCreateStream, err)
 		}
 		st = n
 	}
