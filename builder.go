@@ -7,6 +7,8 @@ import "fmt"
 
 type (
 	// StreamBuilder provides a convenient interface for streaming.
+	// Methods that fixes the stream such as Execute(), XXXConsume()
+	// return an error on failed to build the stream or yield.
 	StreamBuilder interface {
 		// Map maps stream.
 		// Convert each element by f, func(A) (B, error).
