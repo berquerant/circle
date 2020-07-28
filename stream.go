@@ -33,6 +33,7 @@ type (
 	}
 
 	StreamNodeFactory func(Iterator) StreamNode
+	ExecutorFactory   func(Iterator) (Executor, error)
 
 	stream struct {
 		it    Iterator
@@ -70,21 +71,31 @@ func (s *stream) connect() (Iterator, error) {
 	return it, nil
 }
 
-func (s *stream) add(f StreamNodeFactory) Stream {
-	s.nodes = append(s.nodes, f)
+func (s *stream) append(f ExecutorFactory, nodeID string) Stream {
+	if nodeID == "" {
+		nodeID = fmt.Sprint(len(s.nodes))
+	}
+	s.nodes = append(s.nodes, func(it Iterator) StreamNode {
+		ex, err := f(it)
+		if err != nil {
+			return NewErrStreamNode(err, nodeID)
+		}
+		return NewStreamNode(ex, nodeID)
+	})
 	return s
 }
+
 func (s *stream) Map(f Mapper, opt ...StreamOption) Stream {
 	c := newStreamConfig(opt...)
-	return s.add(func(it Iterator) StreamNode {
-		return NewStreamNode(NewMapExecutor(f, it), c.NodeID)
-	})
+	return s.append(func(it Iterator) (Executor, error) {
+		return NewMapExecutor(f, it), nil
+	}, c.NodeID)
 }
 func (s *stream) Filter(f Filter, opt ...StreamOption) Stream {
 	c := newStreamConfig(opt...)
-	return s.add(func(it Iterator) StreamNode {
-		return NewStreamNode(NewFilterExecutor(f, it), c.NodeID)
-	})
+	return s.append(func(it Iterator) (Executor, error) {
+		return NewFilterExecutor(f, it), nil
+	}, c.NodeID)
 }
 func (s *stream) Aggregate(f Aggregator, iv interface{}, opt ...StreamOption) Stream {
 	c := newStreamConfig(opt...)
@@ -92,25 +103,21 @@ func (s *stream) Aggregate(f Aggregator, iv interface{}, opt ...StreamOption) St
 	if c.Aggregate.Type != UnknownAggregateExecutorType {
 		aopts = append(aopts, WithAggregateExecutorType(c.Aggregate.Type))
 	}
-	return s.add(func(it Iterator) StreamNode {
-		f, err := NewAggregateExecutor(f, it, iv, aopts...)
-		if err != nil {
-			return NewErrStreamNode(err, c.NodeID)
-		}
-		return NewStreamNode(f, c.NodeID)
-	})
+	return s.append(func(it Iterator) (Executor, error) {
+		return NewAggregateExecutor(f, it, iv, aopts...)
+	}, c.NodeID)
 }
 func (s *stream) Sort(f Comparator, opt ...StreamOption) Stream {
 	c := newStreamConfig(opt...)
-	return s.add(func(it Iterator) StreamNode {
-		return NewStreamNode(NewCompareExecutor(f, it), c.NodeID)
-	})
+	return s.append(func(it Iterator) (Executor, error) {
+		return NewCompareExecutor(f, it), nil
+	}, c.NodeID)
 }
 func (s *stream) Flat(opt ...StreamOption) Stream {
 	c := newStreamConfig(opt...)
-	return s.add(func(it Iterator) StreamNode {
-		return NewStreamNode(NewFlatExecutor(it), c.NodeID)
-	})
+	return s.append(func(it Iterator) (Executor, error) {
+		return NewFlatExecutor(it), nil
+	}, c.NodeID)
 }
 
 func (s *stream) Consume(f Consumer, opt ...StreamOption) error {

@@ -1,6 +1,7 @@
 package circle_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -61,11 +62,12 @@ func TestStreamConsume(t *testing.T) {
 
 type (
 	testcaseStream struct {
-		title   string
-		src     interface{}
-		stream  func(circle.Iterator) circle.Stream
-		isError bool
-		want    interface{}
+		title        string
+		src          interface{}
+		stream       func(circle.Iterator) circle.Stream
+		wantNewErr   error
+		wantYieldErr error
+		wantVal      interface{}
 	}
 )
 
@@ -74,8 +76,8 @@ func (s *testcaseStream) test(t *testing.T) {
 	assert.Nil(t, err)
 	stream := s.stream(it)
 	git, gotErr := stream.Execute()
-	assert.Equal(t, s.isError, gotErr != nil)
-	if s.isError {
+	assert.Equal(t, fmt.Sprint(s.wantNewErr), fmt.Sprint(gotErr))
+	if gotErr != nil {
 		return
 	}
 	got := []interface{}{}
@@ -83,17 +85,95 @@ func (s *testcaseStream) test(t *testing.T) {
 	for v := range c.C() {
 		got = append(got, v)
 	}
-	assert.Nil(t, c.Err())
-	assert.Equal(t, "", cmp.Diff(got, s.want))
+	assert.Equal(t, fmt.Sprint(s.wantYieldErr), fmt.Sprint(c.Err()))
+	assert.Equal(t, "", cmp.Diff(got, s.wantVal))
 }
 
 func TestStream(t *testing.T) {
 	for _, tc := range []*testcaseStream{
 		{
-			title:  "just iterator",
-			src:    []int{1, 2, 3},
-			stream: circle.NewStream,
-			want:   []interface{}{1, 2, 3},
+			title: "yield error default 0 of 0",
+			src:   []int{1, 2, 3},
+			stream: func(it circle.Iterator) circle.Stream {
+				return circle.NewStream(it).
+					Filter(mustNewFilter(t, func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}))
+			},
+			wantYieldErr: errors.New("0 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "yield error specified node id",
+			src:   []int{1, 2, 3},
+			stream: func(it circle.Iterator) circle.Stream {
+				return circle.NewStream(it).
+					Filter(mustNewFilter(t, func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}), circle.WithNodeID("NID"))
+			},
+			wantYieldErr: errors.New("NID ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "yield error default 1 of 2",
+			src:   []int{1, 2, 3},
+			stream: func(it circle.Iterator) circle.Stream {
+				return circle.NewStream(it).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					})).
+					Filter(mustNewFilter(t, func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					})).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					}))
+			},
+			wantYieldErr: errors.New("2 1 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "yield error specified 1 of 2",
+			src:   []int{1, 2, 3},
+			stream: func(it circle.Iterator) circle.Stream {
+				return circle.NewStream(it).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					}), circle.WithNodeID("N1")).
+					Filter(mustNewFilter(t, func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					}), circle.WithNodeID("N2")).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					}), circle.WithNodeID("N3"))
+			},
+			wantYieldErr: errors.New("N3 N2 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title: "yield error specified and default 1 of 2",
+			src:   []int{1, 2, 3},
+			stream: func(it circle.Iterator) circle.Stream {
+				return circle.NewStream(it).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					}), circle.WithNodeID("N1")).
+					Filter(mustNewFilter(t, func(int) (bool, error) {
+						return false, errors.New("ERROR")
+					})).
+					Map(mustNewMapper(t, func(int) (int, error) {
+						return 0, nil
+					}), circle.WithNodeID("N3"))
+			},
+			wantYieldErr: errors.New("N3 1 ERROR"),
+			wantVal:      []interface{}{},
+		},
+		{
+			title:   "just iterator",
+			src:     []int{1, 2, 3},
+			stream:  circle.NewStream,
+			wantVal: []interface{}{1, 2, 3},
 		},
 		{
 			title: "just map",
@@ -104,7 +184,7 @@ func TestStream(t *testing.T) {
 						return x + 1, nil
 					}))
 			},
-			want: []interface{}{2, 3, 4},
+			wantVal: []interface{}{2, 3, 4},
 		},
 		{
 			title: "just filter",
@@ -115,7 +195,7 @@ func TestStream(t *testing.T) {
 						return x&1 == 1, nil
 					}))
 			},
-			want: []interface{}{1, 3},
+			wantVal: []interface{}{1, 3},
 		},
 		{
 			title: "just aggregate",
@@ -126,7 +206,7 @@ func TestStream(t *testing.T) {
 						return x + y, nil
 					}), 0)
 			},
-			want: []interface{}{6},
+			wantVal: []interface{}{6},
 		},
 		{
 			title: "just sort",
@@ -137,7 +217,7 @@ func TestStream(t *testing.T) {
 						return x < y, nil
 					}))
 			},
-			want: []interface{}{1, 2, 3},
+			wantVal: []interface{}{1, 2, 3},
 		},
 		{
 			title: "just flat",
@@ -145,7 +225,7 @@ func TestStream(t *testing.T) {
 			stream: func(it circle.Iterator) circle.Stream {
 				return circle.NewStream(it).Flat()
 			},
-			want: []interface{}{1, 2, 3, 4},
+			wantVal: []interface{}{1, 2, 3, 4},
 		},
 		{
 			title: "filter map aggregate",
@@ -162,7 +242,7 @@ func TestStream(t *testing.T) {
 						return fmt.Sprintf("%s%s", x, y), nil
 					}), "A", circle.WithAggregateType(circle.LAggregateType))
 			},
-			want: []interface{}{"A1234"},
+			wantVal: []interface{}{"A1234"},
 		},
 	} {
 		t.Run(tc.title, tc.test)
