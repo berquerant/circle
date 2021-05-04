@@ -221,7 +221,7 @@ func TestStream(t *testing.T) {
 		},
 		{
 			title: "just flat",
-			src:   [][]int{[]int{1}, []int{2, 3}, []int{4}},
+			src:   [][]int{{1}, {2, 3}, {4}},
 			stream: func(it circle.Iterator) circle.Stream {
 				return circle.NewStream(it).Flat()
 			},

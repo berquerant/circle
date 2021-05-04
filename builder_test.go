@@ -3,6 +3,7 @@ package circle_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/berquerant/circle"
@@ -10,6 +11,63 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
+
+func ExampleStreamBuilder_readme1() {
+	it, _ := circle.NewIterator([]string{"AbcD", "aaAbB", "c"})
+	_ = circle.NewStreamBuilder(it).
+		Filter(func(x string) bool { return x != "" }).
+		Map(func(x string) string { return strings.ReplaceAll(x, " ", "") }).
+		Map(strings.ToLower).
+		Map(func(x string) []string { return strings.Split(x, "") }).
+		Flat().
+		Aggregate(func(d map[string]int, x string) map[string]int {
+			d[x]++
+			return d
+		}, map[string]int{}).
+		Flat().
+		Sort(func(x, y circle.Tuple) bool {
+			nx, _ := x.Get(1)
+			ny, _ := y.Get(1)
+			return nx.(int) > ny.(int)
+		}).
+		TupleMap(func(x string, y int) string { return fmt.Sprintf("%s %d", x, y) }).
+		Consume(func(x string) { fmt.Println(x) })
+	// Output:
+	// a 4
+	// b 3
+	// c 2
+	// d 1
+}
+
+func ExampleStreamBuilder_readme2() {
+	it, _ := circle.NewIterator([]string{"AbcD", "aaAbB", "c"})
+	st, _ := circle.NewStreamBuilder(it).
+		Filter(func(x string) (bool, error) { return x != "", nil }).
+		Map(func(x string) (string, error) { return strings.ReplaceAll(x, " ", ""), nil }).
+		Map(strings.ToLower).
+		Map(func(x string) []string { return strings.Split(x, "") }).
+		Flat().
+		Aggregate(func(d map[string]int, x string) (map[string]int, error) {
+			d[x]++
+			return d, nil
+		}, map[string]int{}).
+		Flat().
+		Sort(func(x, y circle.Tuple) (bool, error) {
+			nx, _ := x.Get(1)
+			ny, _ := y.Get(1)
+			return nx.(int) > ny.(int), nil
+		}).
+		TupleMap(func(x string, y int) (string, error) { return fmt.Sprintf("%s %d", x, y), nil }).
+		Execute()
+	for x := range st.Channel().C() {
+		fmt.Println(x)
+	}
+	// Output:
+	// a 4
+	// b 3
+	// c 2
+	// d 1
+}
 
 func ExampleStreamBuilder_map() {
 	it, _ := circle.NewIterator([]int{1, 2, 3, -1, 4})
@@ -184,7 +242,7 @@ func ExampleStreamBuilder_sort() {
 }
 
 func ExampleStreamBuilder_flat() {
-	it, _ := circle.NewIterator([][]int{[]int{1}, []int{2, 3}})
+	it, _ := circle.NewIterator([][]int{{1}, {2, 3}})
 	_ = circle.NewStreamBuilder(it).
 		Flat().
 		Consume(func(x int) error {
@@ -266,8 +324,9 @@ func ExampleStreamBuilder_failedToCreateStream2() {
 	err := circle.NewStreamBuilder(it).
 		Map(func(x int) (int, error) { return x + 1, nil }).
 		Filter(func(x int) (bool, error) { return x&1 == 1, nil }).
-		Consume(func(x int) { // invalid consumer!
+		Consume(func(x int) int { // invalid consumer!
 			fmt.Println(x)
+			return 0
 		})
 	fmt.Println(err)
 	// Output:

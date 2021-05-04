@@ -30,39 +30,24 @@ func main() {
 		}
 		return nil, circle.ErrEOI
 	})
-
-	st, _ := circle.NewStreamBuilder(it).
-		Filter(func(x string) (bool, error) {
-			return x != "", nil
-		}).
-		Map(func(x string) (string, error) {
-			return strings.ReplaceAll(x, " ", ""), nil
-		}).
-		Map(func(x string) (string, error) {
-			return strings.ToLower(x), nil
-		}).
-		Map(func(x string) ([]string, error) {
-			return strings.Split(x, ""), nil
-		}).
+    _ = circle.NewStreamBuilder(it).
+		Filter(func(x string) bool { return x != "" }).
+		Map(func(x string) string { return strings.ReplaceAll(x, " ", "") }).
+		Map(strings.ToLower).
+		Map(func(x string) []string { return strings.Split(x, "") }).
 		Flat().
-		Aggregate(func(d map[string]int, x string) (map[string]int, error) {
+		Aggregate(func(d map[string]int, x string) map[string]int {
 			d[x]++
-			return d, nil
+			return d
 		}, map[string]int{}).
 		Flat().
-		Sort(func(x, y circle.Tuple) (bool, error) {
+		Sort(func(x, y circle.Tuple) bool {
 			nx, _ := x.Get(1)
 			ny, _ := y.Get(1)
-			return nx.(int) > ny.(int), nil
+			return nx.(int) > ny.(int)
 		}).
-		TupleMap(func(x string, y int) (string, error) {
-			return fmt.Sprintf("%s %d", x, y), nil
-		}).
-		Execute()
-
-	for x := range st.Channel().C() {
-		fmt.Println(x)
-	}
+		TupleMap(func(x string, y int) string { return fmt.Sprintf("%s %d", x, y) }).
+		Consume(func(x string) { fmt.Println(x) })
 }
 ```
 

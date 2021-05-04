@@ -366,6 +366,12 @@ func TestTupleMapper(t *testing.T) {
 			want:  2,
 		},
 		{
+			title: "without error",
+			arg:   circle.NewTuple(1, 2),
+			f:     func(x, y int) int { return x + y },
+			want:  3,
+		},
+		{
 			title: "tuple",
 			arg:   circle.NewTuple(1, "two"),
 			f:     func(x int, y string) (string, error) { return fmt.Sprintf("%d-%s", x, y), nil },
@@ -470,6 +476,16 @@ func TestTupleConsumer(t *testing.T) {
 			want: 1,
 		},
 		{
+			title: "without error",
+			arg:   circle.NewTuple(1, 2),
+			f: func(ch chan<- interface{}) interface{} {
+				return func(x, y int) {
+					ch <- fmt.Sprintf("%d&%d", x, y)
+				}
+			},
+			want: "1&2",
+		},
+		{
 			title: "double",
 			arg:   circle.NewTuple(1, "xs"),
 			f: func(ch chan<- interface{}) interface{} {
@@ -547,6 +563,12 @@ func TestTupleFilter(t *testing.T) {
 			title: "unit",
 			arg:   circle.NewTuple(1),
 			f:     func(x int) (bool, error) { return x == 1, nil },
+			want:  true,
+		},
+		{
+			title: "without error",
+			arg:   circle.NewTuple(1, 2),
+			f:     func(x, y int) bool { return x < y },
 			want:  true,
 		},
 		{

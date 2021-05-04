@@ -311,7 +311,7 @@ func TestCompareExecutor(t *testing.T) {
 }
 
 func ExampleNewFlatExecutor() {
-	it, _ := circle.NewIterator([][]string{[]string{"cast"}, []string{"a", "spell"}, []string{"on", "me"}})
+	it, _ := circle.NewIterator([][]string{{"cast"}, {"a", "spell"}, {"on", "me"}})
 	exit, _ := circle.NewFlatExecutor(it).Execute()
 	for v := range exit.Channel().C() {
 		fmt.Println(v)
@@ -392,7 +392,7 @@ func testFlatExecutorNoop(t *testing.T) {
 }
 
 func testFlatExecutorFlatOneStep(t *testing.T) {
-	it, err := circle.NewIterator([][]int{[]int{1}, []int{2, 3}, []int{4, 5, 6}})
+	it, err := circle.NewIterator([][]int{{1}, {2, 3}, {4, 5, 6}})
 	assert.Nil(t, err)
 	exit, err := circle.NewFlatExecutor(it).Execute()
 	assert.Nil(t, err)

@@ -20,7 +20,7 @@ type (
 
 // NewMaybeMapper returns a new Mapper for Maybe.
 //
-// If you want to convert Maybe[A] to B, f is a func(A) (B, error).
+// If you want to convert Maybe[A] to B, f is a func(A) (B, error) or func(A) B.
 //
 // If f returns error or argument is nothing, returns nothing.
 func NewMaybeMapper(f interface{}) (Mapper, error) {
@@ -47,7 +47,7 @@ type (
 
 // NewEitherMapper returns a new Mapper for Either.
 //
-// If you want to convert Either[_, A] to B, f is a func(A) (B, error).
+// If you want to convert Either[_, A] to B, f is a func(A) (B, error) or func(A) B.
 //
 // If f returns error or argument is left, returns left.
 func NewEitherMapper(f interface{}) (Mapper, error) {
@@ -74,7 +74,7 @@ type (
 
 // NewTupleMapper returns a new Mapper for Tuple.
 //
-// If you want to convert Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (B, error).
+// If you want to convert Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (B, error) or func(A1, A2, ..., An) B.
 //
 // If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
 func NewTupleMapper(f interface{}) (Mapper, error) {
@@ -88,9 +88,17 @@ func NewTupleMapper(f interface{}) (Mapper, error) {
 
 func isTupleMapper(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumOut() == 2 &&
-		t.Out(1).String() == "error"
+	if t.Kind() != reflect.Func {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return true
+	case 2:
+		return t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 func (s *tupleMapper) Apply(v interface{}) (ret interface{}, rerr error) {
@@ -123,10 +131,12 @@ func (s *tupleMapper) Apply(v interface{}) (ret interface{}, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call(a)
 		r0 = r[0].Interface()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -139,7 +149,7 @@ type (
 
 // NewTupleFilter returns a new Filter for Tuple.
 //
-// If you want to filter Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (bool, error).
+// If you want to filter Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) (bool, error) or func(A1, A2, ..., An) bool.
 //
 // If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
 func NewTupleFilter(f interface{}) (Filter, error) {
@@ -153,9 +163,17 @@ func NewTupleFilter(f interface{}) (Filter, error) {
 
 func isTupleFilter(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumOut() == 2 &&
-		t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	if t.Kind() != reflect.Func {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return t.Out(0).Kind() == reflect.Bool
+	case 2:
+		return t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 func (s *tupleFilter) Apply(v interface{}) (ret bool, rerr error) {
@@ -188,10 +206,12 @@ func (s *tupleFilter) Apply(v interface{}) (ret bool, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call(a)
 		r0 = r[0].Bool()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -204,7 +224,7 @@ type (
 
 // NewTupleConsumer returns a new Consumer for Tuple.
 //
-// If you want to consume Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) error.
+// If you want to consume Tuple(A1, A2, ..., An), f is a func(A1, A2, ..., An) error or func(A1, A2, ..., An).
 //
 // If argument is not Tuple or number of parameters of f is not equal to size of argument Tuple, returns error.
 func NewTupleConsumer(f interface{}) (Consumer, error) {
@@ -218,8 +238,17 @@ func NewTupleConsumer(f interface{}) (Consumer, error) {
 
 func isTupleConsumer(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumOut() == 1 && t.Out(0).String() == "error"
+	if t.Kind() != reflect.Func {
+		return false
+	}
+	switch t.NumOut() {
+	case 0:
+		return true
+	case 1:
+		return t.Out(0).String() == "error"
+	default:
+		return false
+	}
 }
 
 func (s *tupleConsumer) Apply(v interface{}) (rerr error) {
@@ -249,11 +278,13 @@ func (s *tupleConsumer) Apply(v interface{}) (rerr error) {
 		a[i] = v
 	}
 	var (
-		r  = reflect.ValueOf(s.f).Call(a)
-		r0 = r[0].Interface()
+		r = reflect.ValueOf(s.f).Call(a)
 	)
-	if err, ok := r0.(error); ok {
-		return err
+	if len(r) == 1 {
+		r0 := r[0].Interface()
+		if err, ok := r0.(error); ok {
+			return err
+		}
 	}
 	return nil
 }

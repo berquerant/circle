@@ -13,7 +13,7 @@ var (
 )
 
 type (
-	// Mapper is a func(A) (B, error).
+	// Mapper is a func(A) (B, error) or func(A) B.
 	Mapper interface {
 		Apply(v interface{}) (interface{}, error)
 	}
@@ -25,9 +25,17 @@ type (
 
 func isMapper(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 1 && t.NumOut() == 2 &&
-		t.Out(1).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 1) {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return true
+	case 2:
+		return t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 // NewMapper returns a new Mapper.
@@ -55,10 +63,12 @@ func (s *mapper) Apply(v interface{}) (ret interface{}, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call([]reflect.Value{av})
 		r0 = r[0].Interface()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -68,7 +78,7 @@ var (
 )
 
 type (
-	// Filter is a func(A) (bool, error).
+	// Filter is a func(A) (bool, error) or func(A) bool.
 	Filter interface {
 		Apply(v interface{}) (bool, error)
 	}
@@ -80,9 +90,17 @@ type (
 
 func isFilter(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 1 && t.NumOut() == 2 &&
-		t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 1) {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return t.Out(0).Kind() == reflect.Bool
+	case 2:
+		return t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 // NewFilter returns a new Filter.
@@ -110,10 +128,12 @@ func (s *filter) Apply(v interface{}) (ret bool, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call([]reflect.Value{av})
 		r0 = r[0].Bool()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -139,26 +159,42 @@ type (
 
 const (
 	UnknownAggregatorType AggregatorType = iota
-	// RightAggregatorType indicates func(A, B) (B, error)
+	// RightAggregatorType indicates func(A, B) (B, error) or func(A, B) B.
 	RightAggregatorType
-	// LeftAggregatorType indicates func(B, A) (B, error)
+	// LeftAggregatorType indicates func(B, A) (B, error) or func(B, A) B.
 	LeftAggregatorType
-	// PerfectAggregatorType indicates func(A, A) (A, error)
+	// PerfectAggregatorType indicates func(A, A) (A, error) or func(A, A) A.
 	PerfectAggregatorType
 )
 
 func isRightAggregator(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 2 && t.NumOut() == 2 &&
-		t.In(1).String() == t.Out(0).String() && t.Out(1).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 2) {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return t.In(1).String() == t.Out(0).String()
+	case 2:
+		return t.In(1).String() == t.Out(0).String() && t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 func isLeftAggregator(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 2 && t.NumOut() == 2 &&
-		t.In(0).String() == t.Out(0).String() && t.Out(1).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 2) {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return t.In(0).String() == t.Out(0).String()
+	case 2:
+		return t.In(0).String() == t.Out(0).String() && t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 func getAggregatorType(f interface{}) AggregatorType {
@@ -208,10 +244,12 @@ func (s *aggregator) Apply(x, y interface{}) (ret interface{}, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call([]reflect.Value{vx, vy})
 		r0 = r[0].Interface()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -221,7 +259,7 @@ var (
 )
 
 type (
-	// Comparator is a func(A, A) (bool, error).
+	// Comparator is a func(A, A) (bool, error) or func(A, A) bool.
 	Comparator interface {
 		Apply(x, y interface{}) (bool, error)
 	}
@@ -233,10 +271,18 @@ type (
 
 func isComparator(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 2 && t.NumOut() == 2 &&
-		t.In(0).String() == t.In(1).String() &&
-		t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 2 &&
+		t.In(0).String() == t.In(1).String()) {
+		return false
+	}
+	switch t.NumOut() {
+	case 1:
+		return t.Out(0).Kind() == reflect.Bool
+	case 2:
+		return t.Out(0).Kind() == reflect.Bool && t.Out(1).String() == "error"
+	default:
+		return false
+	}
 }
 
 // NewComparator returns a new Comparator.
@@ -269,10 +315,12 @@ func (s *comparator) Apply(x, y interface{}) (ret bool, rerr error) {
 	var (
 		r  = reflect.ValueOf(s.f).Call([]reflect.Value{vx, vy})
 		r0 = r[0].Bool()
-		r1 = r[1].Interface()
 	)
-	if err, ok := r1.(error); ok {
-		return r0, err
+	if len(r) == 2 {
+		r1 := r[1].Interface()
+		if err, ok := r1.(error); ok {
+			return r0, err
+		}
 	}
 	return r0, nil
 }
@@ -282,7 +330,7 @@ var (
 )
 
 type (
-	// Consumer is a func(A) error.
+	// Consumer is a func(A) error or func(A).
 	Consumer interface {
 		Apply(x interface{}) error
 	}
@@ -293,9 +341,17 @@ type (
 
 func isConsumer(f interface{}) bool {
 	t := reflect.TypeOf(f)
-	return t.Kind() == reflect.Func &&
-		t.NumIn() == 1 && t.NumOut() == 1 &&
-		t.Out(0).String() == "error"
+	if !(t.Kind() == reflect.Func && t.NumIn() == 1) {
+		return false
+	}
+	switch t.NumOut() {
+	case 0:
+		return true
+	case 1:
+		return t.Out(0).String() == "error"
+	default:
+		return false
+	}
 }
 
 // NewConsumer returns a new Consumer.
@@ -320,11 +376,13 @@ func (s *consumer) Apply(x interface{}) (rerr error) {
 		return err
 	}
 	var (
-		r  = reflect.ValueOf(s.f).Call([]reflect.Value{vx})
-		r0 = r[0].Interface()
+		r = reflect.ValueOf(s.f).Call([]reflect.Value{vx})
 	)
-	if err, ok := r0.(error); ok {
-		return err
+	if len(r) == 1 {
+		r0 := r[0].Interface()
+		if err, ok := r0.(error); ok {
+			return err
+		}
 	}
 	return nil
 }

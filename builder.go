@@ -11,59 +11,59 @@ type (
 	// return an error on failed to build the stream or yield.
 	StreamBuilder interface {
 		// Map maps stream.
-		// Convert each element by f, func(A) (B, error).
+		// Convert each element by f, func(A) (B, error) or func(A) B.
 		// If f returns error, the element is filtered from this stream.
 		Map(f interface{}, opt ...StreamOption) StreamBuilder
 		// MaybeMap maps stream with Maybe.
-		// If an element is Just (has value), converts the value of it by f, func(A) (B, error),
+		// If an element is Just (has value), converts the value of it by f, func(A) (B, error) or func(A) B,
 		// If f returns error, yield Nothing (has no value).
 		// If an element is not Maybe, it is filtered from this stream.
 		MaybeMap(f interface{}, opt ...StreamOption) StreamBuilder
 		// EitherMap maps stream with Either.
-		// If an element is Right, converts the value of it by f, func(A) (B, error).
+		// If an element is Right, converts the value of it by f, func(A) (B, error) or func(A) B.
 		// If f returns error, yield Left with the error.
 		// If an element is not Either, it is filtered from this stream.
 		EitherMap(f interface{}, opt ...StreamOption) StreamBuilder
 		// TupleMap maps stream with Tuple.
-		// Converts each element by f, func(A1, A2, ..., An) (B, error).
+		// Converts each element by f, func(A1, A2, ..., An) (B, error) or func(A1, A2, ..., An) B.
 		// If an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An,
 		// it is filtered from this stream.
 		TupleMap(f interface{}, opt ...StreamOption) StreamBuilder
 		// Filter filters stream.
-		// Select elements by f, func(A) (bool, error).
+		// Select elements by f, func(A) (bool, error) or func(A) bool.
 		// If f returns false, the element is filtered from this stream.
 		// If f returns error, stops streaming.
 		Filter(f interface{}, opt ...StreamOption) StreamBuilder
 		// TupleFilter filters stream with Tuple.
-		// Select elements by f, func(A1, A2, ..., An) (bool, error).
+		// Select elements by f, func(A1, A2, ..., An) (bool, error) or func(A1, A2, ..., An) bool.
 		// If f returns false, the element is filtered from this stream.
 		// If f returns error,
 		// or an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An,
 		// stops streaming.
 		TupleFilter(f interface{}, opt ...StreamOption) StreamBuilder
 		// Aggregate aggregates stream.
-		// Aggregate elements by f, func(A, B) (A, error) or func(A, B) (B, error) with initial value iv.
+		// Aggregate elements by f, func(A, B) (A, error) or func(A, B) (B, error) or func(A, B) A or func(A, B) B with initial value iv.
 		Aggregate(f, iv interface{}, opt ...StreamOption) StreamBuilder
 		// Sort sorts stream.
-		// Sort elements by f, func(A, A) (bool, error).
+		// Sort elements by f, func(A, A) (bool, error) or func(A, A) bool.
 		//
 		// Note: ignore error from f currently.
 		Sort(f interface{}, opt ...StreamOption) StreamBuilder
 		// Flat flattens stream.
 		// See NewFlatExecutor().
 		Flat(opt ...StreamOption) StreamBuilder
-		// Consume consumes stream.
+		// Consume consumes stream by f, func(A) error or func(A).
 		// If f returns error, stops consuming.
 		Consume(f interface{}, opt ...StreamOption) error
 		// MaybeConsume consumes stream with Maybe.
-		// If an element is Just, consumes the value of it by f, func(A) error,
+		// If an element is Just, consumes the value of it by f, func(A) error or func(A),
 		// else calls g.
 		MaybeConsume(f interface{}, g func() error, opt ...StreamOption) error
 		// EitherConsume consumes stream with Either.
-		// If an element is Right, consumers the value of it by g, func(A) error,
+		// If an element is Right, consumers the value of it by g, func(A) error or func(A),
 		// else by f, func(B) error.
 		EitherConsume(f, g interface{}, opt ...StreamOption) error
-		// TupleConsume consumes stream with Tuple.
+		// TupleConsume consumes stream with Tuple by f, func(A1, A2, ..., An) error or func(A1, A2, ..., An).
 		// If an element is not Tuple or size of Tuple is not equal to n or type of each element do not match to A1, A2, ...., An
 		// or f returns error, stops consuming.
 		TupleConsume(f interface{}, opt ...StreamOption) error

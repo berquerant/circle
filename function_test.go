@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/berquerant/circle"
@@ -32,6 +33,22 @@ func ExampleMapper() {
 	// true <nil>
 	// false <nil>
 	// false out of range
+}
+
+func ExampleMapperWithoutError() {
+	f, err := circle.NewMapper(func(x int) bool {
+		return x > 0
+	})
+	if err != nil {
+		panic(err)
+	}
+	for _, x := range []int{1, 0, -1} {
+		fmt.Println(f.Apply(x))
+	}
+	// Output:
+	// true <nil>
+	// false <nil>
+	// false <nil>
 }
 
 func TestMapper(t *testing.T) {
@@ -63,6 +80,13 @@ func testMapperApply(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, v, 100)
 		},
+		"without error": func(t *testing.T) {
+			f, err := circle.NewMapper(strings.ToUpper)
+			assert.Nil(t, err)
+			v, err := f.Apply("mapper")
+			assert.Nil(t, err)
+			assert.Equal(t, v, "MAPPER")
+		},
 		"sum": func(t *testing.T) {
 			f, err := circle.NewMapper(func(xs []int) (int, error) {
 				var s int
@@ -87,7 +111,7 @@ func testMapperApply(t *testing.T) {
 				return ss, nil
 			})
 			assert.Nil(t, err)
-			v, err := f.Apply([][]int{[]int{1}, []int{2, 3}, []int{4, 5, 6}})
+			v, err := f.Apply([][]int{{1}, {2, 3}, {4, 5, 6}})
 			assert.Nil(t, err)
 			assert.Equal(t, "", cmp.Diff([]int{1, 5, 15}, v))
 		},
@@ -116,6 +140,14 @@ func testFilterApply(t *testing.T) {
 		assert.Nil(t, err)
 		_, err = f.Apply(1)
 		assert.NotNil(t, err)
+	})
+
+	t.Run("without error", func(t *testing.T) {
+		f, err := circle.NewFilter(func(x string) bool { return x == "filter" })
+		assert.Nil(t, err)
+		v, err := f.Apply("filter")
+		assert.Nil(t, err)
+		assert.True(t, v)
 	})
 
 	t.Run("do", func(t *testing.T) {
@@ -169,13 +201,28 @@ func testAggregatorType(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, circle.RightAggregatorType, f.Type())
 		},
+		"right without error": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ int, _ string) string { return "" })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.RightAggregatorType, f.Type())
+		},
 		"left": func(t *testing.T) {
 			f, err := circle.NewAggregator(func(_ string, _ int) (string, error) { return "", nil })
 			assert.Nil(t, err)
 			assert.Equal(t, circle.LeftAggregatorType, f.Type())
 		},
+		"left without error": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ string, _ int) string { return "" })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.LeftAggregatorType, f.Type())
+		},
 		"perfect": func(t *testing.T) {
 			f, err := circle.NewAggregator(func(_ string, _ string) (string, error) { return "", nil })
+			assert.Nil(t, err)
+			assert.Equal(t, circle.PerfectAggregatorType, f.Type())
+		},
+		"perfect without error": func(t *testing.T) {
+			f, err := circle.NewAggregator(func(_ string, _ string) string { return "" })
 			assert.Nil(t, err)
 			assert.Equal(t, circle.PerfectAggregatorType, f.Type())
 		},
@@ -185,23 +232,37 @@ func testAggregatorType(t *testing.T) {
 }
 
 func testAggregatorApply(t *testing.T) {
-	f, err := circle.NewAggregator(func(x string, y int) (int, error) {
-		i, err := strconv.Atoi(x)
-		if err != nil {
-			return 0, err
-		}
-		return i + y, nil
-	})
-	assert.Nil(t, err)
-	{
-		_, err := f.Apply("", 10)
-		assert.NotNil(t, err)
-	}
-	{
-		v, err := f.Apply("10", 1)
+	t.Run("without error", func(t *testing.T) {
+		f, err := circle.NewAggregator(func(x string, y int) string {
+			return fmt.Sprintf("%s%d", x, y)
+		})
 		assert.Nil(t, err)
-		assert.Equal(t, 11, v)
-	}
+		{
+			v, err := f.Apply("x", 10)
+			assert.Nil(t, err)
+			assert.Equal(t, "x10", v)
+		}
+	})
+
+	t.Run("do", func(t *testing.T) {
+		f, err := circle.NewAggregator(func(x string, y int) (int, error) {
+			i, err := strconv.Atoi(x)
+			if err != nil {
+				return 0, err
+			}
+			return i + y, nil
+		})
+		assert.Nil(t, err)
+		{
+			_, err := f.Apply("", 10)
+			assert.NotNil(t, err)
+		}
+		{
+			v, err := f.Apply("10", 1)
+			assert.Nil(t, err)
+			assert.Equal(t, 11, v)
+		}
+	})
 }
 
 func TestComparator(t *testing.T) {
@@ -226,6 +287,18 @@ func testComparatorApply(t *testing.T) {
 		assert.Nil(t, err)
 		_, err = f.Apply("1", "2")
 		assert.NotNil(t, err)
+	})
+
+	t.Run("without error", func(t *testing.T) {
+		f, err := circle.NewComparator(func(x, y int) bool {
+			return x < y
+		})
+		assert.Nil(t, err)
+		{
+			v, err := f.Apply(1, 2)
+			assert.Nil(t, err)
+			assert.True(t, v)
+		}
 	})
 
 	t.Run("do", func(t *testing.T) {
@@ -278,6 +351,12 @@ func testConsumerApply(t *testing.T) {
 		})
 		assert.Nil(t, err)
 		assert.NotNil(t, f.Apply("1"))
+	})
+
+	t.Run("without error", func(t *testing.T) {
+		f, err := circle.NewConsumer(func(int) {})
+		assert.Nil(t, err)
+		assert.Nil(t, f.Apply(10))
 	})
 
 	t.Run("do", func(t *testing.T) {
