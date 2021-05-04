@@ -30,7 +30,7 @@ func main() {
 		}
 		return nil, circle.ErrEOI
 	})
-    _ = circle.NewStreamBuilder(it).
+	_ = circle.NewStreamBuilder(it).
 		Filter(func(x string) bool { return x != "" }).
 		Map(func(x string) string { return strings.ReplaceAll(x, " ", "") }).
 		Map(strings.ToLower).
