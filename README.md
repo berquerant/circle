@@ -21,7 +21,7 @@ import (
 // tr -d ' ' | tr '[:upper:]' '[:lower:]' | grep -o . | sort | uniq -c | sort -rnk 1 | awk '{print $2, $1}'
 func main() {
 	sc := bufio.NewScanner(os.Stdin)
-	it, _ := circle.NewIterator(func() (interface{}, error) {
+	_ = circle.NewStreamBuilder(circle.MustNewIterator(func() (interface{}, error) {
 		if sc.Scan() {
 			return sc.Text(), nil
 		}
@@ -29,8 +29,7 @@ func main() {
 			return nil, err
 		}
 		return nil, circle.ErrEOI
-	})
-	_ = circle.NewStreamBuilder(it).
+	})).
 		Filter(func(x string) bool { return x != "" }).
 		Map(func(x string) string { return strings.ReplaceAll(x, " ", "") }).
 		Map(strings.ToLower).
@@ -41,11 +40,7 @@ func main() {
 			return d
 		}, map[string]int{}).
 		Flat().
-		Sort(func(x, y circle.Tuple) bool {
-			nx, _ := x.Get(1)
-			ny, _ := y.Get(1)
-			return nx.(int) > ny.(int)
-		}).
+		Sort(func(x, y circle.Tuple) bool { return x.MustGet(1).(int) > y.MustGet(1).(int) }).
 		TupleMap(func(x string, y int) string { return fmt.Sprintf("%s %d", x, y) }).
 		Consume(func(x string) { fmt.Println(x) })
 }

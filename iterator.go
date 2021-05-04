@@ -62,6 +62,18 @@ func NewIterator(v interface{}) (Iterator, error) {
 	return newIterator(f), nil
 }
 
+// MustNewIterator returns a new Iterator.
+//
+// The function is wrapper of NewIterator(),
+// panic if NewIterator() returns an error.
+func MustNewIterator(v interface{}) Iterator {
+	it, err := NewIterator(v)
+	if err != nil {
+		panic(err)
+	}
+	return it
+}
+
 func newIterator(f IteratorFunc) Iterator {
 	return &iterator{
 		f: f,

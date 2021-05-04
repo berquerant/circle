@@ -1,6 +1,7 @@
 package circle
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -13,6 +14,9 @@ type (
 		// Get returns the value of this.
 		// If this is nothing, returns false.
 		Get() (interface{}, bool)
+		// MustGet returns the value of this.
+		// If this is nothing then panic.
+		MustGet() interface{}
 		// GetOrElse returns the value of this if this is not nothing,
 		// else returns v.
 		GetOrElse(v interface{}) interface{}
@@ -36,7 +40,8 @@ type (
 )
 
 var (
-	nothingEntity = &nothing{}
+	nothingEntity       = &nothing{}
+	errCannotGetNothing = errors.New("cannot get nothing")
 )
 
 // NewJust returns a new Maybe that has value.
@@ -47,6 +52,7 @@ func NewNothing() Maybe { return nothingEntity }
 
 func (*just) IsNothing() bool                       { return false }
 func (s *just) Get() (interface{}, bool)            { return s.v, true }
+func (s *just) MustGet() interface{}                { return s.v }
 func (s *just) GetOrElse(v interface{}) interface{} { return s.v }
 func (s *just) OrElse(_ Maybe) Maybe                { return s }
 func (s *just) Map(f Mapper) Maybe {
@@ -67,6 +73,7 @@ func (s *just) String() string              { return fmt.Sprintf("Just(%v)", s.v
 
 func (*nothing) IsNothing() bool                     { return true }
 func (*nothing) Get() (interface{}, bool)            { return nil, false }
+func (*nothing) MustGet() interface{}                { panic(errCannotGetNothing) }
 func (*nothing) GetOrElse(v interface{}) interface{} { return v }
 func (*nothing) OrElse(v Maybe) Maybe                { return v }
 func (*nothing) Map(Mapper) Maybe                    { return nothingEntity }
@@ -84,9 +91,15 @@ type (
 		// Left returns left value.
 		// If this is not left, returns false.
 		Left() (interface{}, bool)
+		// MustLeft returns left value.
+		// If this is not left then panic.
+		MustLeft() interface{}
 		// Right returns right value.
 		// If this is not right, returns false.
 		Right() (interface{}, bool)
+		// MustRight returns a right value.
+		// If this is not right then panic.
+		MustRight() interface{}
 		// GetOrElse returns right value if this is right else returns v.
 		GetOrElse(v interface{}) interface{}
 		// Map applies f to value if this is right.
@@ -109,6 +122,11 @@ type (
 	}
 )
 
+var (
+	errCannotGetLeft  = errors.New("cannot get left")
+	errCannotGetRight = errors.New("cannot get right")
+)
+
 // NewRight returns a new Right.
 func NewRight(v interface{}) Either { return &right{v: v} }
 
@@ -118,7 +136,9 @@ func NewLeft(v interface{}) Either { return &left{v: v} }
 func (*left) IsLeft() bool                        { return true }
 func (*left) IsRight() bool                       { return false }
 func (s *left) Left() (interface{}, bool)         { return s.v, true }
+func (s *left) MustLeft() interface{}             { return s.v }
 func (s *left) Right() (interface{}, bool)        { return nil, false }
+func (*left) MustRight() interface{}              { panic(errCannotGetRight) }
 func (*left) GetOrElse(v interface{}) interface{} { return v }
 func (s *left) Map(f Mapper) Either               { return s }
 func (*left) ToMaybe() Maybe                      { return nothingEntity }
@@ -128,7 +148,9 @@ func (s *left) String() string                    { return fmt.Sprintf("Left(%v)
 func (*right) IsLeft() bool                        { return false }
 func (*right) IsRight() bool                       { return true }
 func (*right) Left() (interface{}, bool)           { return nil, false }
+func (*right) MustLeft() interface{}               { panic(errCannotGetLeft) }
 func (s *right) Right() (interface{}, bool)        { return s.v, true }
+func (s *right) MustRight() interface{}            { return s.v }
 func (s *right) GetOrElse(interface{}) interface{} { return s.v }
 func (s *right) Map(f Mapper) Either {
 	v, err := f.Apply(s.v)
@@ -149,6 +171,9 @@ type (
 		// Get returns an element.
 		// If i is out of range, returns false.
 		Get(i int) (interface{}, bool)
+		// MustGet returns an element.
+		// If i is out of range then panic.
+		MustGet(i int) interface{}
 	}
 
 	tuple struct {
@@ -166,6 +191,7 @@ func (s *tuple) Get(i int) (interface{}, bool) {
 	}
 	return s.v[i], true
 }
+func (s *tuple) MustGet(i int) interface{} { return s.v[i] }
 func (s *tuple) String() string {
 	a := make([]string, len(s.v))
 	for i, x := range s.v {

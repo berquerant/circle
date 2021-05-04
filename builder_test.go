@@ -13,8 +13,7 @@ import (
 )
 
 func ExampleStreamBuilder_readme1() {
-	it, _ := circle.NewIterator([]string{"AbcD", "aaAbB", "c"})
-	_ = circle.NewStreamBuilder(it).
+	_ = circle.NewStreamBuilder(circle.MustNewIterator([]string{"AbcD", "aaAbB", "c"})).
 		Filter(func(x string) bool { return x != "" }).
 		Map(func(x string) string { return strings.ReplaceAll(x, " ", "") }).
 		Map(strings.ToLower).
@@ -25,11 +24,7 @@ func ExampleStreamBuilder_readme1() {
 			return d
 		}, map[string]int{}).
 		Flat().
-		Sort(func(x, y circle.Tuple) bool {
-			nx, _ := x.Get(1)
-			ny, _ := y.Get(1)
-			return nx.(int) > ny.(int)
-		}).
+		Sort(func(x, y circle.Tuple) bool { return x.MustGet(1).(int) > y.MustGet(1).(int) }).
 		TupleMap(func(x string, y int) string { return fmt.Sprintf("%s %d", x, y) }).
 		Consume(func(x string) { fmt.Println(x) })
 	// Output:
@@ -40,8 +35,7 @@ func ExampleStreamBuilder_readme1() {
 }
 
 func ExampleStreamBuilder_readme2() {
-	it, _ := circle.NewIterator([]string{"AbcD", "aaAbB", "c"})
-	st, _ := circle.NewStreamBuilder(it).
+	st, _ := circle.NewStreamBuilder(circle.MustNewIterator([]string{"AbcD", "aaAbB", "c"})).
 		Filter(func(x string) (bool, error) { return x != "", nil }).
 		Map(func(x string) (string, error) { return strings.ReplaceAll(x, " ", ""), nil }).
 		Map(strings.ToLower).
@@ -52,11 +46,7 @@ func ExampleStreamBuilder_readme2() {
 			return d, nil
 		}, map[string]int{}).
 		Flat().
-		Sort(func(x, y circle.Tuple) (bool, error) {
-			nx, _ := x.Get(1)
-			ny, _ := y.Get(1)
-			return nx.(int) > ny.(int), nil
-		}).
+		Sort(func(x, y circle.Tuple) (bool, error) { return x.MustGet(1).(int) > y.MustGet(1).(int), nil }).
 		TupleMap(func(x string, y int) (string, error) { return fmt.Sprintf("%s %d", x, y), nil }).
 		Execute()
 	for x := range st.Channel().C() {
